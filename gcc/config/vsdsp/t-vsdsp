@@ -18,21 +18,9 @@
 # along with GCC; see the file COPYING3.  If not see
 # <http://www.gnu.org/licenses/>.
 
-# floating point emulation libraries
-
-FPBIT = fp-bit.c
-DPBIT = dp-bit.c
-
-fp-bit.c: $(srcdir)/config/fp-bit.c
-	echo '#define FLOAT'				> fp-bit.c
-	cat $(srcdir)/config/fp-bit.c			>> fp-bit.c
-
-dp-bit.c: $(srcdir)/config/fp-bit.c
-	cat $(srcdir)/config/fp-bit.c > dp-bit.c
-
 # target-specific files
 
-md_file = md
+md_file = $(srcdir)/common.md md
 
 MD_FILES = vsdsp
 

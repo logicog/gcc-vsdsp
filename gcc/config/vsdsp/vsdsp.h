@@ -17,11 +17,24 @@
    along with GCC; see the file COPYING3.  If not see
    <http://www.gnu.org/licenses/>.  */
 
+
 #ifndef GCC_VSDSP_H
 #define GCC_VSDSP_H
 
-/* Layout of Source Language Data Types */
+/* Storage Layout */
+#define BITS_BIG_ENDIAN 0
+#define BYTES_BIG_ENDIAN 1
+#define WORDS_BIG_ENDIAN 1
 
+/* We stick to BITS_PER_UNIT = 8 as this is the size of the
+ * a2, b2, c2, d2 registers */
+
+/* Number of storage units in a word; normally the size of a
+   general-purpose register, a power of two from 1 or 8.  */
+#define UNITS_PER_WORD 2
+#define POINTER_SIZE 16
+
+/* Layout of Source Language Data Types */
 #define INT_TYPE_SIZE 32
 #define SHORT_TYPE_SIZE 16
 #define LONG_TYPE_SIZE 32
@@ -33,94 +46,102 @@
 
 #define DEFAULT_SIGNED_CHAR 1
 
-/* Registers...
+#define VSDSP_A0	0
+#define VSDSP_A1	1
+#define VSDSP_A2	2
+#define VSDSP_B0	3
+#define VSDSP_B1	4
+#define VSDSP_B2	5
+#define VSDSP_C0	6
+#define VSDSP_C1	7
+#define VSDSP_C2	8
+#define VSDSP_D0	9
+#define VSDSP_D1	10
+#define VSDSP_D2	11
+#define VSDSP_I0	12
+#define VSDSP_I1	13
+#define VSDSP_I2	14
+#define VSDSP_I3	15
+#define VSDSP_I4	16
+#define VSDSP_I5	17
+#define VSDSP_I6	18
+#define VSDSP_I7	19
+#define VSDSP_LR0	20
+#define VSDSP_LR1	21
+#define VSDSP_MR0	22
+#define VSDSP_LC	23
+#define VSDSP_LS	24
+#define VSDSP_LE	25
+#define VSDSP_IPR0	26
+#define VSDSP_IPR1	27
+#define VSDSP_P0	28
+#define VSDSP_P1	29
+#define VSDSP_PC	30
+// A, B, C, D??? NULL, ONES???
 
-   $fp - frame pointer
-   $sp - stack pointer
-   $r0 - general purpose 32-bit register.
-   $r1 - general purpose 32-bit register.
-   $r2 - general purpose 32-bit register.
-   $r3 - general purpose 32-bit register.
-   $r4 - general purpose 32-bit register.
-   $r5 - general purpose 32-bit register.
+#define REGISTER_NAMES { \
+  "a0", "a1", "a2", "b0", "b1", "b2", \
+  "c0", "c1", "c2", "d0", "d1", "d2", \
+  "i0", "i1", "i2", "i3", "i4", "i5", "i6", "i7", \
+  "lr0", "lr1", "mr0", "lc", "ls", "le", "ipr0", "ipr1", \
+  "p0", "p1", "pc" }
 
-   Special Registers...
-
-   $pc - 32-bit program counter.
-   
-*/
-
-#define REGISTER_NAMES {	\
-  "$fp", "$sp", "$r0", "$r1",   \
-  "$r2", "$r3", "$r4", "$r5",   \
-  "$pc" }
-
-#define FIRST_PSEUDO_REGISTER 9
+  
+#define FIRST_PSEUDO_REGISTER 31
 
 enum reg_class
 {
   NO_REGS,
   GENERAL_REGS,
+  POINTER_REGS,
+  ACC_REGS,
   SPECIAL_REGS,
   ALL_REGS,
   LIM_REG_CLASSES
 };
 
-#define CONSTRAINT_LEN(CHAR,STR) DEFAULT_CONSTRAINT_LEN(CHAR,STR)
-#define REG_CLASS_FROM_CONSTRAINT(CHAR,STR) (abort(), 0)
-#define CONST_OK_FOR_CONSTRAINT_P(VALUE,C,STR) \
-  (abort(), 0)
-#define CONST_DOUBLE_OK_FOR_CONSTRAINT_P(VALUE,C,STR) 0
-#define EXTRA_CONSTRAINT_STR(VALUE,C,STR) \
-  (abort(), 0)
-#define EXTRA_MEMORY_CONSTRAINT(C,STR) \
-  (abort(), 0)
-#define EXTRA_ADDRESS_CONSTRAINT(C,STR) \
-  (abort(), 0)
+extern enum reg_class vsdsp_regno_reg_class (int r);
 
 #define REG_CLASS_CONTENTS \
-{ { 0x00000000 }, /* Empty */			\
-  { (1<<9)-1 },   /* $fp, $sp, $r0 to $r5 */ \
-  { (1<<8) },     /* $pc */	\
-  { (1<<10)-1 }   /* All registers */ \
+{  { 0x00000000 },  /* Empty */			\
+   { 0x00000fff },  /* a0 .. d2 */		\
+   { 0x000ff000 },  /* i0 .. i7 */ 		\
+   { 0x30000000 },  /* p0, p1 */		\
+   { 0x4ff00000 },  /* lr, lr1, mr0, lc, ls, le, ipr0, ipr1, pc */ \
+   { 0x7fffffff }   /* All registers */		\
 }
 
 #define N_REG_CLASSES LIM_REG_CLASSES
 
+#define FIXED_REGISTERS { 0, 0, 0, 0, /* a0 .. b0 */ \
+			  0, 0, 0, 0, /* b1 .. c1 */ \
+			  0, 0, 0, 0, /* c2 .. d2 */ \
+			  0, 0, 0, 0, /* i0 .. i3 */ \
+			  0, 0, 1, 1, /* i4 .. i7, i6 is sp, i7 is fp */ \
+			  1, 1, 1, 1, /* lr0, lr1, mr0, lc */ \
+			  1, 1, 1, 1, /* ls, le, ipr0, ipr1 */ \
+			  1, 1, 1 } /* p0, p1, pc */
+
+#define CALL_REALLY_USED_REGISTERS  { \
+			  1, 1, 1, 0, /* a0 .. b0 */ \
+			  0, 0, 0, 0, /* b1 .. c1 */ \
+			  0, 0, 0, 0, /* c2 .. d2 */ \
+			  0, 0, 0, 0, /* i0 .. i3 */ \
+			  0, 0, 1, 1, /* i4 .. i7, i6 is sp */ \
+			  1, 1, 1, 1, /* lr0, lr1, mr0, lc */ \
+			  1, 1, 1, 1, /* ls, le, ipr0, ipr1 */ \
+			  1, 1, 1 } /* p0, p1, pc */
+
 #define REG_CLASS_NAMES {\
     "NO_REGS", \
     "GENERAL_REGS", \
+    "PINTER_REGS", \
+    "ACC_REGS", \
     "SPECIAL_REGS", \
     "ALL_REGS" }
 
-#define FIXED_REGISTERS     { 1, 1, 0, 0, \
-			      0, 0, 0, 0, \
-                              1 }
-
-#define CALL_USED_REGISTERS { 1, 1, 1, 0, \
-			      0, 0, 0, 1, \
-                              1 }
-
-/* A C expression that is nonzero if it is permissible to store a
-   value of mode MODE in hard register number REGNO (or in several
-   registers starting with that one).  All gstore registers are 
-   equivalent, so we can set this to 1.  */
-#define HARD_REGNO_MODE_OK(R,M) 1
-
-/* A C expression whose value is a register class containing hard
-   register REGNO.  */
-#define REGNO_REG_CLASS(R) ((R < 9) ? GENERAL_REGS : SPECIAL_REGS)
-
-/* A C expression for the number of consecutive hard registers,
-   starting at register number REGNO, required to hold a value of mode
-   MODE.  */
-#define HARD_REGNO_NREGS(REGNO, MODE)			   \
-  ((GET_MODE_SIZE (MODE) + UNITS_PER_WORD - 1)		   \
-   / UNITS_PER_WORD)
-
-/* A C expression that is nonzero if a value of mode MODE1 is
-   accessible in mode MODE2 without copying.  */
-#define MODES_TIEABLE_P(MODE1, MODE2) 1
+/* Program Counter is register number 30 */
+#define PC_REGNUM 30
 
 /* A C expression for the maximum number of consecutive registers of
    class CLASS needed to hold a value of mode MODE.  */
@@ -152,31 +173,16 @@ enum reg_class
 
 /* Passing Arguments in Registers */
 
-#define FUNCTION_ARG(CA,MODE,TYPE,NAMED) \
-  (abort(), 0)
-
-#define CUMULATIVE_ARGS int
-#define INIT_CUMULATIVE_ARGS(CA,FNTYPE,LIBNAME,FNDECL,N_NAMED_ARGS) \
-  (abort())
-#define FUNCTION_ARG_ADVANCE(CA,MODE,TYPE,NAMED) \
-  (abort())
-
-/* How Scalar Function Values Are Returned */
+/* How Scalar Function Values Are Returned
 
 #define FUNCTION_VALUE(VT,F) (abort(), 0)
 #define LIBCALL_VALUE(MODE) (abort(), 0)
+*/
 
 /* STACK AND CALLING */
 
 #define INITIAL_FRAME_POINTER_OFFSET(DEPTH) (DEPTH) = 0;
-#define STARTING_FRAME_OFFSET 0
 #define FIRST_PARM_OFFSET(F) 0
-
-/* Storage Layout */
-
-#define BITS_BIG_ENDIAN 0
-#define BYTES_BIG_ENDIAN 1
-#define WORDS_BIG_ENDIAN 1
 
 /* Alignment required for a function entry point, in bits.  */
 #define FUNCTION_BOUNDARY 16
@@ -213,7 +219,6 @@ enum reg_class
 /* Trampolines for Nested Functions.  Abort for now.  */
 #define TRAMPOLINE_SIZE (abort (), 0)
 #define TRAMPOLINE_ALIGNMENT (abort (), 0)
-#define INITIALIZE_TRAMPOLINE(a,fn,sc) (abort (), 0)
 
 /* An alias for the machine mode for pointers.  */
 #define Pmode         SImode
@@ -224,30 +229,54 @@ enum reg_class
 
 /* The register number of the stack pointer register, which must also
    be a fixed register according to `FIXED_REGISTERS'.  */
-#define STACK_POINTER_REGNUM 1
+#define STACK_POINTER_REGNUM VSDSP_I6
 
 /* The register number of the frame pointer register, which is used to
-   access automatic variables in the stack frame.  */
-#define FRAME_POINTER_REGNUM 0
+   access automatic variables in the stack frame.  We choose i7 */
+#define FRAME_POINTER_REGNUM VSDSP_I7
 
 /* The register number of the arg pointer register, which is used to
    access the function's argument list.  */
-#define ARG_POINTER_REGNUM 0
+#define ARG_POINTER_REGNUM VSDSP_I7
+
+/* This macro specifies a table of register pairs used to eliminate
+ * unneeded registers that point into the stack frame.
+ * The definition of this macro is a list of structure initializations,
+ * each of which specifies an original and replacement register. */
+#define ELIMINABLE_REGS {                                       \
+    { ARG_POINTER_REGNUM, STACK_POINTER_REGNUM },               \
+    { ARG_POINTER_REGNUM, FRAME_POINTER_REGNUM },               \
+    { FRAME_POINTER_REGNUM, STACK_POINTER_REGNUM },             \
+    { FRAME_POINTER_REGNUM + 1, STACK_POINTER_REGNUM + 1 } }
+
+/* This macro returns the initial difference between the specified pair
+   of registers.  */
+#define INITIAL_ELIMINATION_OFFSET(FROM, TO, OFFSET)                    \
+  do {                                                                  \
+    (OFFSET) = 2; break;        \
+  } while (0)
+
+/* Return address register is LR0, LR1 in irq context */
+#define RETURN_ADDRESS_POINTER_REGNUM VSDSP_LR0
 
 /* A C expression that is nonzero if REGNO is the number of a hard
-   register in which function arguments are sometimes passed.  */
-#define FUNCTION_ARG_REGNO_P(r) (r > 1 && r < 4)
+   register in which function arguments are sometimes passed.
+   use a0-d2, i0-i5*/
+#define FUNCTION_ARG_REGNO_P(r) (r >= 3 && r < VSDSP_I6)
 
 /* A C expression that is nonzero if REGNO is the number of a hard
    register in which the values of called function may come back.  */
-#define FUNCTION_VALUE_REGNO_P(r) (r == 2)
+#define FUNCTION_VALUE_REGNO_P(r) (r == 0)
 
 /* A macro whose definition is the name of the class to which a vqalid
    base register must belong.  A base register is one used in an
    address which is the register value plus a displacement.  */
-#define BASE_REG_CLASS NO_REGS
+#define BASE_REG_CLASS POINTER_REGS
 
 #define INDEX_REG_CLASS NO_REGS
+
+/* Map register number to its class */
+#define REGNO_REG_CLASS(R) vsdsp_regno_reg_class(R)
 
 /* A C expression which is nonzero if register number NUM is suitable
    for use as a base register in operand addresses.  */
@@ -269,14 +298,7 @@ enum reg_class
 /* The maximum number of bytes that a single instruction can move
    quickly between memory and registers or between two memory
    locations.  */
-#define MOVE_MAX 4
-#define TRULY_NOOP_TRUNCATION(op,ip) 1
-
-#define RETURN_POPS_ARGS(FUNDECL, FUNTYPE, STACK_SIZE) 0
-
-#define LEGITIMATE_CONSTANT_P(X) (abort(), 0)
-
-#define FRAME_POINTER_REQUIRED 1
+#define MOVE_MAX 2
 
 /* A C expression that is 1 if the RTX X is a constant which is a
    valid address.  */
@@ -286,7 +308,15 @@ enum reg_class
    valid memory address.  */
 #define MAX_REGS_PER_ADDRESS 1
 
-#define TRULY_NOOP_TRUNCATION(op,ip) 1
+/* A C type for declaring a variable that is used as the first
+   argument of `FUNCTION_ARG' and other related values.  */
+#define CUMULATIVE_ARGS unsigned int
+
+/* A C statement (sans semicolon) for initializing the variable CUM
+   for the state at the beginning of the argument list.  
+   For moxie, the first arg is passed in register 2 (aka $r0).  */
+#define INIT_CUMULATIVE_ARGS(CUM,FNTYPE,LIBNAME,FNDECL,N_NAMED_ARGS) \
+  (CUM = VSDSP_A2)
 
 /* An alias for a machine mode name.  This is the machine mode that
    elements of a jump-table should have.  */
@@ -304,8 +334,6 @@ enum reg_class
 	|| GET_CODE (X) == CONST)			\
       goto LABEL;					\
   } while (0)
-
-#define GO_IF_MODE_DEPENDENT_ADDRESS(ADDR,LEBEL)
 
 /* Run-time Target Specification */
 

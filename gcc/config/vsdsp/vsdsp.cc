@@ -39,6 +39,7 @@
 #include "calls.h"
 #include "expr.h"
 #include "builtins.h"
+#include "vsdsp-protos.h"
 
 /* This file should be included last.  */
 #include "target-def.h"
@@ -52,14 +53,36 @@ vsdsp_return_in_memory (const_tree type, const_tree fntype ATTRIBUTE_UNUSED)
   return (size == -1 || size > 2 * UNITS_PER_WORD);
 }
 
+enum reg_class
+vsdsp_regno_reg_class (int r)
+{
+   static const enum reg_class reg_class_tab[] =
+    {
+      /* a0 .. d2 */
+      GENERAL_REGS, GENERAL_REGS, GENERAL_REGS, GENERAL_REGS,
+      GENERAL_REGS, GENERAL_REGS, GENERAL_REGS, GENERAL_REGS,
+      GENERAL_REGS, GENERAL_REGS, GENERAL_REGS, GENERAL_REGS,
+      /* i0 .. i7 */
+      POINTER_REGS, POINTER_REGS, POINTER_REGS, POINTER_REGS,
+      POINTER_REGS, POINTER_REGS, POINTER_REGS, POINTER_REGS,
+      /* lr0, lr1, mr0, lc, ls, le, ipr0, ipr1*/
+      SPECIAL_REGS, SPECIAL_REGS, SPECIAL_REGS, SPECIAL_REGS,
+      SPECIAL_REGS, SPECIAL_REGS, SPECIAL_REGS, SPECIAL_REGS,
+      /* p0, p1, pc */
+      SPECIAL_REGS, SPECIAL_REGS, SPECIAL_REGS
+    };
+
+  if (r <= 30)
+    return reg_class_tab[r];
+
+  return ALL_REGS;
+}
+
+
 /* The Global `targetm' Variable. */
 
 /* Initialize the GCC target structure.  */
 
-#undef  TARGET_PROMOTE_FUNCTION_ARGS
-#define TARGET_PROMOTE_FUNCTION_ARGS	hook_bool_const_tree_true
-#undef  TARGET_PROMOTE_FUNCTION_RETURN
-#define TARGET_PROMOTE_FUNCTION_RETURN	hook_bool_const_tree_true
 #undef  TARGET_PROMOTE_PROTOTYPES
 #define TARGET_PROMOTE_PROTOTYPES	hook_bool_const_tree_true
 
