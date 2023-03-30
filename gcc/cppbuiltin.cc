@@ -176,11 +176,15 @@ define_builtin_macros_for_type_sizes (cpp_reader *pfile)
 			   : "__ORDER_LITTLE_ENDIAN__"));
   else
     {
-      /* Assert that we're only dealing with the PDP11 case.  */
+      /* Assert that we're only dealing with the PDP11 case.TODO: re-enable __ORDER_PDP_ENDIAN__
       gcc_assert (!BYTES_BIG_ENDIAN);
       gcc_assert (WORDS_BIG_ENDIAN);
 
-      cpp_define (pfile, "__BYTE_ORDER__=__ORDER_PDP_ENDIAN__");
+      cpp_define (pfile, "__BYTE_ORDER__=__ORDER_PDP_ENDIAN__"); */
+      cpp_define_formatted (pfile, "__BYTE_ORDER__=%s",
+			  (BYTES_BIG_ENDIAN
+			   ? "__ORDER_BIG_ENDIAN__"
+			   : "__ORDER_LITTLE_ENDIAN__"));
     }
 
   cpp_define_formatted (pfile, "__FLOAT_WORD_ORDER__=%s",
