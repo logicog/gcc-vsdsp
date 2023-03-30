@@ -642,7 +642,9 @@
   [(set (reg:HI REG_LC)
         (unspec:HI [(match_operand:HI 0 "register_operand" "r")] UNSPEC_DLS))]
   ""
-  "loop %0")
+  {
+    return doloop_begin_output(operands);
+  })
 
 (define_expand "doloop_end"
   [(parallel [(set (pc)
@@ -656,10 +658,9 @@
     printf("insn --------------------------++++++++++++++++++++++ doloop_end EXPANDING\n");
     if (optimize > 0)
       {
-	printf("insn --------------------------++++++++++++++++++++++ doloop_end 1\n");
 	if (GET_MODE (operands[0]) != HImode)
            FAIL;
-	printf("insn --------------------------++++++++++++++++++++++ doloop_end 2\n");
+	printf("insn --------------------------++++++++++++++++++++++ doloop_end EXPANDING being done\n");
       }
     else
       FAIL;
@@ -676,7 +677,7 @@
   ""
   {
     printf("insn --------------------------++++++++++++++++++++++ doloop_end OUTPUT\n");
-    return "nop # Loop end";
+    return doloop_end_output();
   })
 
 ;; -------------------------------------------------------------------------

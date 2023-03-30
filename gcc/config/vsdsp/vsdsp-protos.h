@@ -19,6 +19,7 @@
    along with GCC; see the file COPYING3.  If not see
    <http://www.gnu.org/licenses/>.  */
 
+
 extern enum reg_class vsdsp_regno_reg_class (int r);
 
 extern rtx vsdsp_function_value (const_tree, const_tree);
@@ -26,3 +27,6 @@ extern rtx vsdsp_function_value (const_tree, const_tree);
 extern void vsdsp_print_operand (FILE *, rtx, int);
 extern void vsdsp_print_operand_address (FILE *, rtx);
 
+extern const char *doloop_begin_output(rtx *operands);
+
+extern const char * doloop_end_output();

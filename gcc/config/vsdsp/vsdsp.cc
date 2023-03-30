@@ -41,6 +41,8 @@
 #include "builtins.h"
 #include "print-rtl.h"
 
+#include "vsdsp-protos.h"
+
 /* This file should be included last.  */
 #include "target-def.h"
 
@@ -76,6 +78,31 @@ vsdsp_regno_reg_class (int r)
     return reg_class_tab[r];
 
   return ALL_REGS;
+}
+
+/* Per-function machine data.  */
+struct GTY (()) machine_function
+{
+  /* The current lable number at the end of a doloop
+   * Since we hw-loops cannot be nested, we only need this once */
+  int doloop_label;
+};
+
+/* Zero initialization is OK for all current fields.  */
+
+static struct machine_function *
+vsdsp_init_machine_status (void)
+{
+  return ggc_cleared_alloc < machine_function > ();
+}
+
+/* The TARGET_OPTION_OVERRIDE worker.
+   All this curently does is set init_machine_status.  */
+static void
+vsdsp_option_override (void)
+{
+  /* Set the per-function-data initializer.  */
+  init_machine_status = vsdsp_init_machine_status;
 }
 
 rtx
@@ -499,6 +526,31 @@ vsdsp_can_use_doloop_p (const widest_int &, const widest_int &,
   return loop_depth == 1 && entered_at_top;
 }
 
+const char *
+doloop_begin_output(rtx *operands)
+{
+  const char *s;
+
+  rtx_code_label *end_label = gen_label_rtx ();
+
+  cfun->machine->doloop_label = CODE_LABEL_NUMBER (end_label);
+  operands[1] = gen_rtx_LABEL_REF (VOIDmode, end_label);
+  s = "loop %0, %l1-1";
+  output_asm_insn (s, operands);
+
+  printf("+++++!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! setting label %d\n", cfun->machine->doloop_label);
+  return "nop";
+}
+
+const char *
+doloop_end_output()
+{
+  printf("+++++!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! using label %d\n", cfun->machine->doloop_label);
+  (*targetm.asm_out.internal_label) (asm_out_file, "L",
+				      cfun->machine->doloop_label);
+  return "nop";
+}
+
 /* Initialize the GCC target structure.  */
 
 #undef  TARGET_PROMOTE_PROTOTYPES
@@ -540,6 +592,11 @@ vsdsp_can_use_doloop_p (const widest_int &, const widest_int &,
 
 // TODO: set TARGET_INVALID_WITHIN_DOLOOP
 
+#undef TARGET_OPTION_OVERRIDE
+#define TARGET_OPTION_OVERRIDE vsdsp_option_override
+
 /* The Global `targetm' Variable. */
 
 struct gcc_target targetm = TARGET_INITIALIZER;
+
+#include "gt-vsdsp.h"
