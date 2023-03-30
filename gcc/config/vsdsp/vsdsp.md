@@ -15,6 +15,9 @@
 ;; <http://www.gnu.org/licenses/>.
 
 ;;- See file "rtl.def" for documentation on define_insn, match_*, et. al.
+;; Special formats used for outputting VSDSP instructions:
+;;
+;;   %#  --  output a nop if there is nothing to put in the delay slot
 
 
 (include "constraints.md")
@@ -36,6 +39,16 @@
  UNSPEC_DLS            ; Used for DLS (Do Loop Start)
 ])
 
+;;---------------------------------------------------------------------------
+;; VSDSP pipeline description
+;;---------------------------------------------------------------------------
+
+(define_attr "type" "unknown,branch,call, jump"
+  (const_string "unknown"))
+
+/* One delay slot for branches/calls */
+(define_delay (eq_attr "type" "branch,call,jump")
+              [(eq_attr "type" "!branch,call,jump") (nil) (nil)])
 
 ;; -------------------------------------------------------------------------
 ;; Move instructions
@@ -333,15 +346,25 @@
   add %1, %2, %0
   ldx %0 + %2, null")
 
-
 (define_insn "mulhisi3"
-  [(set (match_operand:SI 0 "nonimmediate_operand" "=A")
+  [(set (match_operand:SI 0 "register_operand" "=b")
 	(mult:SI (sign_extend:SI
-		  (match_operand:HI 1 "general_operand" "b"))
+		  (match_operand:HI 1 "register_operand" "b"))
 		 (sign_extend:SI
 		  (match_operand:HI 2 "general_operand" "b"))))]
   ""
   {
+    printf("44444444444444444444444444444444444444444444444444444444444444444444\n");
+    return "mulss %0, %1";
+  })
+
+(define_insn "mulhi3"
+  [(set (match_operand:HI 0 "nonimmediate_operand" "=b")
+	(mult:HI (match_operand:HI 1 "register_operand" "b")
+		 (match_operand:HI 2 "general_operand" "b")))]
+  ""
+  {
+    printf("55555555555555555555555555555555555555555555555555555555555555555555\n");
     return "mulss %0, %1";
   })
 
@@ -435,13 +458,15 @@
 (define_insn "indirect_jump"
   [(set (pc) (match_operand:SI 0 "nonimmediate_operand" "p"))]
   ""
-  "jmp %0")
+  "jmp %0%#"
+  [(set_attr "type" "jump")])
 
 (define_insn "jump"
   [(set (pc)
 	(label_ref (match_operand 0 "" "")))]
   ""
-  "jmp %l0")
+  "jmp %l0%#"
+  [(set_attr "type" "jump")])
   
 
 (define_expand "call"
@@ -463,9 +488,9 @@
          (match_operand 1 "immediate_operand" ""))]
   ""
   "@
-   jsra\\t%0
-   jsr\\t%0"
-)
+   jsra\\t%0%#
+   jsr\\t%0%#"
+  [(set_attr "type" "call")])
 
 (define_expand "call_value"
   [(set (match_operand 0 "" "")
@@ -488,8 +513,8 @@
                        1 "immediate_operand" "i"))
               (match_operand 2 "" "")))]
   ""
-  "call\\t%1"
-  )
+  "call\\t%1%#"
+  [(set_attr "type" "call")]  )
 
 ; TODO: Needed for -O3, but is this not just a define_expand ?
 (define_insn "sibcall_value"
@@ -498,8 +523,9 @@
 	      (match_operand:HI 2 "general_operand" "")))]
   ""
 {
-  return "CALL %0 %1 %2";
-})
+  return "CALL %0 %1 %2%#";
+}
+  [(set_attr "type" "jump")])
 
 ;; -------------------------------------------------------------------------
 ;; Branch instructions
@@ -584,8 +610,9 @@
                       (pc)))]
   ""
 {
-  return "j<CC> %l0";
-})
+  return "j<CC> %l0%#";
+}
+  [(set_attr "type" "branch")])
 
 ;; -------------------------------------------------------------------------
 ;; Compare instructions

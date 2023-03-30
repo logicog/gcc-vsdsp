@@ -141,6 +141,12 @@ vsdsp_function_arg_advance (cumulative_args_t cum_v,
           : *cum);
 }
 
+bool
+vsdsp_print_operand_punct_valid_p (unsigned char code)
+{
+  return (code == '#');
+}
+
 void
 vsdsp_print_operand_address (FILE *file, rtx x)
 {
@@ -210,6 +216,12 @@ vsdsp_print_operand (FILE *file, rtx x, int code)
     case 0:
       /* No code, print as usual.  */
       break;
+
+    case '#':
+      /* Output a nop if there's nothing in the delay slot.  */
+      if (dbr_sequence_length () == 0)
+        fprintf (file, "\n\tnop");
+      return;
 
     case 'R':
       /* A 32 bit register name for the ALU-registers a, b, c, d */
@@ -533,6 +545,9 @@ doloop_begin_output(rtx *operands)
 
   rtx_code_label *end_label = gen_label_rtx ();
 
+  /* loop's cannot be nested */
+  gcc_assert(!cfun->machine->doloop_label);
+  
   cfun->machine->doloop_label = CODE_LABEL_NUMBER (end_label);
   operands[1] = gen_rtx_LABEL_REF (VOIDmode, end_label);
   s = "loop %0, %l1-1";
@@ -548,6 +563,7 @@ doloop_end_output()
   printf("+++++!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! using label %d\n", cfun->machine->doloop_label);
   (*targetm.asm_out.internal_label) (asm_out_file, "L",
 				      cfun->machine->doloop_label);
+  cfun->machine->doloop_label = 0;
   return "nop";
 }
 
@@ -594,6 +610,9 @@ doloop_end_output()
 
 #undef TARGET_OPTION_OVERRIDE
 #define TARGET_OPTION_OVERRIDE vsdsp_option_override
+
+#undef TARGET_PRINT_OPERAND_PUNCT_VALID_P
+#define TARGET_PRINT_OPERAND_PUNCT_VALID_P vsdsp_print_operand_punct_valid_p
 
 /* The Global `targetm' Variable. */
 
