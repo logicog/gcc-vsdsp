@@ -101,6 +101,7 @@ enum reg_class
 };
 
 extern enum reg_class vsdsp_regno_reg_class (int r);
+extern rtx vsdsp_function_value (const_tree, const_tree);
 
 #define REG_CLASS_CONTENTS \
 {  { 0x00000000 },  /* Empty */			\
@@ -164,8 +165,11 @@ extern enum reg_class vsdsp_regno_reg_class (int r);
 #define ASM_OUTPUT_ALIGN(STREAM,POWER) \
 	fprintf (STREAM, "\t.p2align\t%d\n", POWER);
 
-#define PRINT_OPERAND(S,X,C) (abort(), 0)
-#define PRINT_OPERAND_ADDRESS(S,X) (abort(), 0)
+#define PRINT_OPERAND(FILE, X, CODE)  \
+  vsdsp_print_operand (FILE, X, CODE)
+
+#define PRINT_OPERAND_ADDRESS(FILE, ADDR)  \
+  vsdsp_print_operand_address (FILE, ADDR)
 
 /* Output and Generation of Labels */
 
@@ -173,9 +177,12 @@ extern enum reg_class vsdsp_regno_reg_class (int r);
 
 /* Passing Arguments in Registers */
 
-/* How Scalar Function Values Are Returned
+/* How Scalar Function Values Are Returned */
 
-#define FUNCTION_VALUE(VT,F) (abort(), 0)
+#define FUNCTION_VALUE(VALTYPE, FUNC) \
+    vsdsp_function_value (VALTYPE, FUNC)
+
+/*
 #define LIBCALL_VALUE(MODE) (abort(), 0)
 */
 
@@ -335,6 +342,11 @@ extern enum reg_class vsdsp_regno_reg_class (int r);
       goto LABEL;					\
   } while (0)
 
+  
+#define TEXT_SECTION_ASM_OP "\t.text"
+#define DATA_SECTION_ASM_OP "\t.data"
+#define BSS_SECTION_ASM_OP "\t.section .bss"
+  
 /* Run-time Target Specification */
 
 #define TARGET_CPU_CPP_BUILTINS() \

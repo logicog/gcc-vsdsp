@@ -20,3 +20,8 @@
    <http://www.gnu.org/licenses/>.  */
 
 extern enum reg_class vsdsp_regno_reg_class (int r);
+
+extern rtx vsdsp_function_value (const_tree, const_tree);
+
+extern void vsdsp_print_operand (FILE *, rtx, int);
+extern void vsdsp_print_operand_address (FILE *, rtx);
