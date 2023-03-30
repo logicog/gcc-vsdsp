@@ -35,3 +35,5 @@ extern void vsdsp_expand_epilogue (void);
 extern void
 vsdsp_init_cumulative_args (CUMULATIVE_ARGS *cum, tree fntype, rtx libname,
 			    tree fndecl, int caller);
+extern int
+vsdsp_initial_elimination_offset (int from, int to);

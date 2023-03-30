@@ -145,7 +145,7 @@ extern rtx vsdsp_function_value (const_tree, const_tree);
 			  0, 0, 1, 1, /* i4 .. i7, i6 is sp, i7 is fp */ \
 			  1, 1, 1, 1, /* lr0, lr1, mr0, lc */ \
 			  1, 1, 1, 1, /* ls, le, ipr0, ipr1 */ \
-			  0, 0, 1 } /* p0, p1, pc */
+			  0, 0, 1} /* p0, p1, pc, virtual-arg */
 
 #define CALL_REALLY_USED_REGISTERS  { \
 			  1, 1, 1, 0, /* a0 .. b0 */ \
@@ -155,7 +155,7 @@ extern rtx vsdsp_function_value (const_tree, const_tree);
 			  0, 0, 1, 1, /* i4 .. i7, i6 is sp */ \
 			  1, 1, 1, 1, /* lr0, lr1, mr0, lc */ \
 			  1, 1, 1, 1, /* ls, le, ipr0, ipr1 */ \
-			  0, 0, 1 } /* p0, p1, pc */
+			  0, 0, 1} /* p0, p1, pc, virtual-arg */
 
 #define REG_CLASS_NAMES {\
     "NO_REGS", \
@@ -290,27 +290,30 @@ extern void vsdsp_print_operand_address (FILE *, rtx);
 #define FRAME_POINTER_REGNUM VSDSP_I7
 
 /* The register number of the arg pointer register, which is used to
-   access the function's argument list.  */
-#define ARG_POINTER_REGNUM VSDSP_I7
+   access the function's argument list. Virtual */
+#define ARG_POINTER_REGNUM FRAME_POINTER_REGNUM
 
 /* This macro specifies a table of register pairs used to eliminate
  * unneeded registers that point into the stack frame.
  * The definition of this macro is a list of structure initializations,
  * each of which specifies an original and replacement register. */
-#define ELIMINABLE_REGS {                                       \
-    { ARG_POINTER_REGNUM, STACK_POINTER_REGNUM },               \
-    { ARG_POINTER_REGNUM, FRAME_POINTER_REGNUM },               \
-    { FRAME_POINTER_REGNUM, STACK_POINTER_REGNUM } }
+#define ELIMINABLE_REGS					\
+{ { FRAME_POINTER_REGNUM, STACK_POINTER_REGNUM }}
 
 /* This macro returns the initial difference between the specified pair
    of registers.  */
-#define INITIAL_ELIMINATION_OFFSET(FROM, TO, OFFSET)                    \
-  do {                                                                  \
-    (OFFSET) = 2; break;        \
+#define INITIAL_ELIMINATION_OFFSET(FROM, TO, OFFSET)		\
+  do {								\
+    (OFFSET) = vsdsp_initial_elimination_offset ((FROM), (TO));	\
   } while (0)
 
-/* Return address register is LR0, LR1 in irq context */
+/* Return address register is LR0, TODO: LR1 in irq context */
 #define RETURN_ADDRESS_POINTER_REGNUM VSDSP_LR0
+
+/* A C expression whose value is RTL representing the location of the
+   incoming return address at the beginning of any function, before
+   the prologue. */
+#define INCOMING_RETURN_ADDR_RTX  gen_rtx_REG (Pmode, VSDSP_LR0)
 
 /* A C expression that is nonzero if REGNO is the number of a hard
    register in which function arguments are sometimes passed.
@@ -342,6 +345,10 @@ extern void vsdsp_print_operand_address (FILE *, rtx);
 /* A C expression which is nonzero if register number NUM is suitable
    for use as an index register in operand addresses.  */
 #define REGNO_OK_FOR_INDEX_P(NUM) 0
+
+#define REGNO_OK_FOR_BASE_NONSTRICT_P(REGNO)		\
+  (ADDRESS_REGNO_P (REGNO)				\
+   || REGNO >= FIRST_PSEUDO_REGISTER)
 
 /* The maximum number of bytes that a single instruction can move
    quickly between memory and registers or between two memory

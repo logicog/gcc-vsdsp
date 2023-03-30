@@ -210,7 +210,7 @@
     && (GET_CODE ( XEXP (XEXP (operands[1], 0), 0)) == REG)
     && (GET_CODE ( XEXP (XEXP (operands[1], 0), 1)) == CONST_INT)"
   
-  [(set (match_dup 3) 
+  [(set (match_dup 3)
 	(plus:HI (match_dup 3) (match_dup 2)))
    (set (match_dup 0) (match_dup 4) )
    (set (match_dup 3) 
@@ -227,7 +227,6 @@
   operands[4] = addr;
   printf("\n ++++ OP4 now:");
   print_rtl(stdout, operands[4]);
-  
 })
 
 (define_split
@@ -263,7 +262,7 @@
    increments/decrements of pointer registers directly together. */
 
 (define_peephole2
-  [(set (match_operand:HI 1 "register_operand" "") 
+  [(set (match_operand:HI 1 "register_operand" "")
         (minus:HI (match_dup 1) (match_operand:HI 2 "immediate_operand" "")) )
    (set (match_dup 1) (plus:HI (match_dup 1) (match_operand:HI 3 "immediate_operand" "")) )]
   ""
@@ -274,7 +273,7 @@
 )
 
 (define_peephole2
-  [(set (match_operand:HI 1 "register_operand" "") 
+  [(set (match_operand:HI 1 "register_operand" "")
         (plus:HI (match_dup 1) (match_operand:HI 2 "immediate_operand" "")) )
    (set (match_dup 1) (minus:HI (match_dup 1) (match_operand:HI 3 "immediate_operand" "")) )]
   ""
@@ -412,9 +411,21 @@
 	   (match_operand:HI 1 "register_operand" "b, 0")
 	   (match_operand:HI 2 "general_operand" "b, i")))]
   ""
-  "@
-  add %1, %2, %0
-  ldx %0 + %2, null")
+  {
+    switch (which_alternative) {
+    case 0:
+      return "add\t%1, %2, %0";
+    case 1:
+        if (XINT (operands[2], 0) > 0)
+	    return "ldx\t(%0)+%2, null # addhi3A";
+	else if (XINT (operands[2], 0) < 0)
+	    return "ldx\t(%0)%2, null # addhi3B";
+	else
+	    return "ldx\t(%0), null # addhi3C";
+    default:
+      gcc_unreachable ();
+    }
+  })
 
 (define_insn "subhi3"
   [(set (match_operand:HI 0 "register_operand" "=b, a")
@@ -423,8 +434,8 @@
 	   (match_operand:HI 2 "general_operand" "b, i")))]
   ""
   "@
-  sub %1, %2, %0
-  ldx %0 - %2, null")
+  sub\t%1, %2, %0
+  ldx\t(%0)-%2, null")
 
 (define_insn "mulhisi3"
   [(set (match_operand:SI 0 "register_operand" "=A")

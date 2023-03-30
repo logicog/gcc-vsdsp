@@ -161,6 +161,12 @@ prologue_saved_reg_p (int regno)
     return true;
   if (regno == RA_REGNUM + 1 && df_regs_ever_live_p (RA_REGNUM + 1))
     return true;
+
+  /* Save callee-saved registers.
+  for (regno = 0; regno < FIRST_PSEUDO_REGISTER; regno++)
+    if (df_regs_ever_live_p (regno) && (! call_used_or_fixed_reg_p (regno)))
+      cfun->machine->callee_saved_reg_size += 4;
+
   */
 
   return false;
@@ -184,19 +190,21 @@ vsdsp_compute_frame_layout (void)
   save_mask = &cfun->machine->save_mask;
   CLEAR_HARD_REG_SET (*save_mask);
 
+  printf("::::::::::::::: got var_size: %d\n", get_frame_size ());
   var_size = VSDSP_STACK_ALIGN ((HOST_WIDE_INT) get_frame_size ());
-  printf("::::::::::::::: got var_size: %d\n", var_size);
+  printf("::::::::::::::: aligned var_size: %d\n", var_size);
   out_args_size = VSDSP_STACK_ALIGN ((HOST_WIDE_INT) crtl->outgoing_args_size);
-  printf("::::::::::::::: got outgoing_args_size: %d\n", total_size);
+  printf("::::::::::::::: got outgoing_args_size: %d\n", out_args_size);
   total_size = var_size + out_args_size;
 
   /* Calculate space needed for gp registers.  */
   save_reg_size = 0;
-  for (regno = 0; regno <= VSDSP_I7; regno++)
-    if (prologue_saved_reg_p (regno))
+  for (regno = 0; regno < FIRST_PSEUDO_REGISTER; regno++)
+    if (df_regs_ever_live_p (regno) && !call_used_or_fixed_reg_p (regno))
       {
+	printf("%s: saving regno %d\n", __func__, regno);
 	SET_HARD_REG_BIT (*save_mask, regno);
-	save_reg_size += 1;
+	save_reg_size += 2;
       }
 
   save_reg_size = VSDSP_STACK_ALIGN (save_reg_size);
@@ -212,7 +220,6 @@ vsdsp_compute_frame_layout (void)
   cfun->machine->save_regs_offset = out_args_size + var_size;
   printf("::::::::::::::: total_size: %d\n", total_size);
   printf("::::::::::::::: var_size: %d\n", var_size);
-  printf("::::::::::::::: out_args_size: %d\n", out_args_size);
   printf("::::::::::::::: save_reg_size: %d\n", save_reg_size);
   printf("::::::::::::::: initialized: %d\n", reload_completed);
   printf("::::::::::::::: save_regs_offset: %d\n", out_args_size + var_size);
@@ -229,11 +236,10 @@ vsdsp_function_value (const_tree valtype,
 void
 vsdsp_init_cumulative_args (CUMULATIVE_ARGS *cum,  /* Argument info to initialize */
 			    tree fntype,	/* tree ptr for function decl */
-			    rtx libname,	/* SYMBOL_REF of library name or 0 */
+			    rtx libname ATTRIBUTE_UNUSED,	/* SYMBOL_REF of library name or 0 */
 			    tree fndecl,
-			    int caller)
+			    int caller ATTRIBUTE_UNUSED)
 {
-  struct cgraph_node *local_info_node = NULL;
   struct cgraph_node *target = NULL;
   tree attrs;
   
@@ -243,7 +249,6 @@ vsdsp_init_cumulative_args (CUMULATIVE_ARGS *cum,  /* Argument info to initializ
       if (target)
 	{
 	  target = target->function_symbol ();
-	  local_info_node = cgraph_node::local_info_node (target->decl);
 	  fntype = TREE_TYPE (target->decl);
 
 	  attrs = TYPE_ATTRIBUTES (fntype);
@@ -305,11 +310,14 @@ vsdsp_function_arg_advance (cumulative_args_t cum_v,
   printf("%s: Is pointer type %d\n", __func__, POINTER_TYPE_P(arg.type));
   if (!POINTER_TYPE_P(arg.type)) 
     cum->data_reg = (cum->data_reg < VSDSP_D0
-	    ? cum->data_reg + 1 + VSDSP_FUNCTION_ARG_SIZE (arg.mode, arg.type) / 2
+	    ? cum->data_reg + VSDSP_FUNCTION_ARG_SIZE (arg.mode, arg.type) / 2
 	    : cum->data_reg);
   else
     cum->addr_reg = (cum->addr_reg < VSDSP_D0 ? cum->addr_reg + 1
 					      : cum->data_reg);
+  if (REGNO_REG_CLASS(cum->data_reg) == EXTENSION_REGS)
+    cum->data_reg++;
+
   printf("%s: next cum: %d\n", __func__, cum->data_reg);
 }
 
@@ -345,8 +353,10 @@ vsdsp_print_operand_address (FILE *file, rtx x)
 	    if (GET_CODE (XEXP (plus, 0)) == SYMBOL_REF 
 		&& CONST_INT_P (XEXP (plus, 1)))
 	      {
+		fprintf(file, "%c", '(');
 		output_addr_const(file, XEXP (plus, 0));
-		fprintf (file,"+%ld(%s)", INTVAL (XEXP (plus, 1)),
+		fprintf(file, "%c", ')');
+		fprintf (file,"%+ld(%s)", INTVAL (XEXP (plus, 1)),
 			 reg_names[REGNO (XEXP (x, 0))]);
 	      }
 	    else
@@ -530,8 +540,8 @@ bool
 vsdsp_is_xmem_p (rtx o)
 {
   return (MEM_P (o)
-           && (MEM_ADDR_SPACE (o) == ADDR_SPACE_XMEM)
-	       || ADDR_SPACE_GENERIC_P (MEM_ADDR_SPACE (o)));
+	    && ( (MEM_ADDR_SPACE (o) == ADDR_SPACE_XMEM)
+		 || ADDR_SPACE_GENERIC_P (MEM_ADDR_SPACE (o)) ));
 }
 
 bool
@@ -632,7 +642,6 @@ vsdsp_asm_select_section (tree decl, int reloc, unsigned HOST_WIDE_INT align)
 /* Implement PREFERRED_RELOAD_CLASS.  */
 
 enum reg_class
-
 vsdsp_preferred_reload_class (rtx x, enum reg_class rclass)
 {
   if (GET_CODE (x) == CONST_INT)
@@ -816,21 +825,72 @@ doloop_end_output()
 void
 vsdsp_expand_prologue(void)
 {
+  int args_to_push = crtl->args.pretend_args_size;
+  int regno;
+
   printf("PROLOGUE PROLOGUE PROLOGUE PROLOGUE\n");
+  printf("%s args to push: %d\n", __func__, args_to_push);
   
+  emit_insn (gen_addhi3 (gen_rtx_REG (HImode, STACK_POINTER_REGNUM),
+			 gen_rtx_REG (HImode, STACK_POINTER_REGNUM),
+			 GEN_INT (cfun->machine->save_reg_size)));
+
+  /* Push FP on stack */
+  rtx preg = gen_rtx_REG (Pmode, FRAME_POINTER_REGNUM);
+  emit_insn (gen_movhi_push (preg));
+
+  rtx reg = gen_rtx_REG (Pmode, STACK_POINTER_REGNUM);
+  emit_insn (gen_movhi (preg, reg));
   
+  for (regno = 0; regno < FIRST_PSEUDO_REGISTER; regno++)
+    {
+      if (!call_used_or_fixed_reg_p (regno)
+	  && df_regs_ever_live_p (regno))
+	{
+	  rtx preg = gen_rtx_REG (Pmode, regno);
+	  emit_insn (gen_movhi_push (preg));
+	}
+    }
 }
 
 void
 vsdsp_expand_epilogue(void)
 {
+  int args_to_push = crtl->args.pretend_args_size;
+  int regno;
   printf("EPILOGUE EPILOGUE EPILOGUE EPILOGUE\n");
+  printf("%s args to pop: %d\n", __func__, args_to_push);
+
+  for (regno = FIRST_PSEUDO_REGISTER - 1; regno > 0; regno--)
+    {
+      if (!call_used_or_fixed_reg_p (regno)
+	  && df_regs_ever_live_p (regno))
+	{
+	  rtx preg = gen_rtx_REG (Pmode, regno);
+	  emit_insn (gen_movhi_pop (preg));
+	}
+    }
   
+  rtx preg = gen_rtx_REG (Pmode, FRAME_POINTER_REGNUM);
+  emit_insn (gen_movhi_pop (preg));
+
+  emit_insn (gen_addhi3 (gen_rtx_REG (HImode, STACK_POINTER_REGNUM),
+			 gen_rtx_REG (HImode, STACK_POINTER_REGNUM),
+			 GEN_INT (-cfun->machine->save_reg_size)));
+
   emit_insn(gen_returner());
 }
 
+/* Implements the macro INITIAL_ELIMINATION_OFFSET, return the OFFSET. */
 
+int
+vsdsp_initial_elimination_offset (int from, int to)
+{
+  int ret;
+  ret = 0x100;
 
+  return ret;
+}
 
 /* Initialize the GCC target structure.  */
 
