@@ -566,7 +566,7 @@ sh[123456789lbe]*-*-* | sh-*-*)
 v850*-*-*)
 	cpu_type=v850
 	;;
-vsdsp-*-*)
+vsdsp*)
 	cpu_type=vsdsp
 	target_has_targetm_common=no
 	;;
