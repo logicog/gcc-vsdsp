@@ -412,6 +412,16 @@ static const struct attribute_spec vsdsp_attribute_table[] =
   { NULL,     0, 0, false, false, false, false, NULL, NULL }
 };
 
+/* Define how to find the value returned by a library function.
+
+   We always return values in register a0/a for VSDSP.  */
+
+static rtx
+vsdsp_libcall_value (machine_mode mode,
+                     const_rtx fun ATTRIBUTE_UNUSED)
+{
+  return gen_rtx_REG (mode, VSDSP_A0);
+}
 /* Initialize the GCC target structure.  */
 
 #undef  TARGET_PROMOTE_PROTOTYPES
@@ -428,6 +438,8 @@ static const struct attribute_spec vsdsp_attribute_table[] =
 #define TARGET_FUNCTION_ARG             vsdsp_function_arg
 #undef  TARGET_FUNCTION_ARG_ADVANCE
 #define TARGET_FUNCTION_ARG_ADVANCE     vsdsp_function_arg_advance
+#undef TARGET_LIBCALL_VALUE
+#define TARGET_LIBCALL_VALUE 		vsdsp_libcall_value
 
 #undef  TARGET_ATTRIBUTE_TABLE
 #define TARGET_ATTRIBUTE_TABLE vsdsp_attribute_table

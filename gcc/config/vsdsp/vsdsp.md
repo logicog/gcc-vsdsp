@@ -42,7 +42,8 @@
       {
         printf("RELOAD reload_completed\n");
         if (MEM_P (operands[1])) {
-          printf("OP 1-0:\n");
+	  int as = MEM_ADDR_SPACE (XEXP (operands[1], 0));
+          printf("OP 1-0, addr space is: %d\n", as);
           print_rtl(stdout, XEXP (operands[1], 0));
           printf("\n is MEM_P %d\n", MEM_P(XEXP (operands[1], 0)));
         }
@@ -58,6 +59,20 @@
             printf("Direc memory load, reloading to register\n");
             operands[1] = gen_rtx_MEM (HImode, force_reg (SImode, XEXP (operands[1], 0)));
           }
+	else if (MEM_P (operands[1]) && (GET_CODE((XEXP (operands[1], 0))) == SYMBOL_REF)) {
+	    /* Make sure to copy over the memory attributes */
+	    operands[1] = replace_equiv_address(operands[1], 
+			    force_reg (Pmode, XEXP (operands[1], 0)));
+	    printf("\n op1 now (after indirection) \n");
+	    print_rtl(stdout, operands[1]);
+	}
+	else if (MEM_P (operands[0]) && (GET_CODE((XEXP (operands[0], 0))) == SYMBOL_REF)) {
+	    printf("IN MEM-STORE\n");
+	    operands[0] = replace_equiv_address(operands[0], 
+			    force_reg (Pmode, XEXP (operands[0], 0)));
+	    printf("\n op0 now \n");
+	    print_rtl(stdout, operands[0]);
+	}
       }
     printf("movsi done\n");
 })
@@ -87,9 +102,29 @@
           /* A load from memory */
         else if (MEM_P (operands[1]) && MEM_P (XEXP (operands[1], 0)))
           {
-            printf("Direc memory load, reloading to register\n");
-            operands[1] = gen_rtx_MEM (HImode, force_reg (SImode, XEXP (operands[1], 0)));
+            printf("Direct memory load, reloading to register\n");
+            operands[1] = gen_rtx_MEM (HImode, force_reg (Pmode, XEXP (operands[1], 0)));
           }
+          /* A store to memory */
+        else if (MEM_P (operands[0]) && MEM_P (XEXP (operands[0], 0)))
+          {
+            printf("Direct memory load, reloading to register\n");
+            operands[1] = gen_rtx_MEM (HImode, force_reg (Pmode, XEXP (operands[0], 0)));
+          }
+	else if (MEM_P (operands[1]) && (GET_CODE((XEXP (operands[1], 0))) == SYMBOL_REF)) {
+	    printf("IN MEM-LOAD\n");
+	    operands[1] = replace_equiv_address(operands[1], 
+			    force_reg (Pmode, XEXP (operands[1], 0)));
+	    printf("\n op1 now \n");
+	    print_rtl(stdout, operands[1]);
+	}
+	else if (MEM_P (operands[0]) && (GET_CODE((XEXP (operands[0], 0))) == SYMBOL_REF)) {
+	    printf("IN MEM-STORE\n");
+	    operands[0] = replace_equiv_address(operands[0], 
+			    force_reg (Pmode, XEXP (operands[0], 0)));
+	    printf("\n op0 now \n");
+	    print_rtl(stdout, operands[0]);
+	}
       }
     printf("movsi done\n");
 })
@@ -118,9 +153,9 @@
     case 2:
       if (MEM_ADDR_SPACE (operands[1]) == ADDR_SPACE_XMEM)
       {
-        return "ldcx %1, %0";
+        return "ldx %1, %0";
       } else {
-        return "ldcy i1, %0";
+        return "ldy %1, %0";
       }
     case 3:
       return "mvx %1, %0";
