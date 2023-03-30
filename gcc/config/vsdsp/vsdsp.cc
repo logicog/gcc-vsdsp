@@ -350,6 +350,30 @@ vsdsp_xmem_p (tree decl, tree attributes)
   return 0;
 }
 
+/* Used by constraints.md to distinguish between X, Y and I memory
+   memory addresses.  */
+
+bool
+vsdsp_is_xmem_p (rtx o)
+{
+  return (MEM_P (o)
+          && MEM_ADDR_SPACE (o) == ADDR_SPACE_XMEM);
+}
+
+bool
+vsdsp_is_ymem_p (rtx o)
+{
+  return (MEM_P (o)
+          && MEM_ADDR_SPACE (o) == ADDR_SPACE_YMEM);
+}
+
+bool
+vsdsp_is_imem_p (rtx o)
+{
+  return (MEM_P (o)
+          && MEM_ADDR_SPACE (o) == ADDR_SPACE_IMEM);
+}
+
 /* Implement `TARGET_INSERT_ATTRIBUTES'.  */
 
 static void
@@ -474,6 +498,7 @@ vsdsp_hard_regno_nregs (unsigned int regno, machine_mode mode)
   switch (REGNO_REG_CLASS (regno))
     {
     case DATA_REGS:
+    case ACC_REGS:
     case ALU_REGS:
       /* Store 32bit integers in 40bit registers a,b,c,d which are a0-a2 */
       if (mode == SImode)
@@ -504,16 +529,20 @@ vsdsp_hard_regno_mode_ok (unsigned int regno, machine_mode mode)
   switch (mode)
     {
     case SImode:
-      /* store 32bit ints in a, b, c, or d register */
+      /* store 32bit ints in a, b, c, or d register, as well as p - register */
       if (regno == VSDSP_A0 || regno == VSDSP_B0 
-	  || regno == VSDSP_C0 || regno == VSDSP_D0)
+	  || regno == VSDSP_C0 || regno == VSDSP_D0 || regno == VSDSP_P0)
 	return true;
       if (REGNO_REG_CLASS (regno) == ADDR_REGS)
 	return true;
       break;
+
     case HImode:
-	return true;
-      break;
+      if (regno == VSDSP_A2 || regno == VSDSP_B2 
+	  || regno == VSDSP_C2 || regno == VSDSP_D2)
+	return false;
+      return true;
+
     case QImode:
       return true;
     case SFmode:

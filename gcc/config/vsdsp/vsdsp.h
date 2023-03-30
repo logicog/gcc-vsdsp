@@ -114,9 +114,9 @@ enum reg_class
   EXTENSION_REGS,
   DATA_REGS,
   ADDR_REGS,
-  ACC_REGS,
   SPECIAL_REGS,
   GENERAL_REGS,
+  ACC_REGS,
   ALL_REGS,
   LIM_REG_CLASSES
 };
@@ -130,9 +130,9 @@ extern rtx vsdsp_function_value (const_tree, const_tree);
    { 0x00000924 },  /* EXTENSION_REGS: a2 .. d2 */   	\
    { 0x00000fff },  /* DATA_REGS: a0 .. d2 */   	\
    { 0x000ff000 },  /* ADDR_REGS: i0 .. i7 */ 		\
-   { 0x30000000 },  /* p0, p1 */			\
    { 0x0ff00000 },  /* lr, lr1, mr0, lc, ls, le, ipr0, ipr1 */ \
-   { 0x3fffffff },  /* GENERAL_REGS */			\
+   { 0x0fffffff },  /* GENERAL_REGS */			\
+   { 0x30000000 },  /* p0, p1 */			\
    { 0x7fffffff }   /* All registers */		\
 }
 
@@ -145,7 +145,7 @@ extern rtx vsdsp_function_value (const_tree, const_tree);
 			  0, 0, 1, 1, /* i4 .. i7, i6 is sp, i7 is fp */ \
 			  1, 1, 1, 1, /* lr0, lr1, mr0, lc */ \
 			  1, 1, 1, 1, /* ls, le, ipr0, ipr1 */ \
-			  1, 1, 1 } /* p0, p1, pc */
+			  0, 0, 1 } /* p0, p1, pc */
 
 #define CALL_REALLY_USED_REGISTERS  { \
 			  1, 1, 1, 0, /* a0 .. b0 */ \
@@ -155,15 +155,16 @@ extern rtx vsdsp_function_value (const_tree, const_tree);
 			  0, 0, 1, 1, /* i4 .. i7, i6 is sp */ \
 			  1, 1, 1, 1, /* lr0, lr1, mr0, lc */ \
 			  1, 1, 1, 1, /* ls, le, ipr0, ipr1 */ \
-			  1, 1, 1 } /* p0, p1, pc */
+			  0, 0, 1 } /* p0, p1, pc */
 
 #define REG_CLASS_NAMES {\
     "NO_REGS", \
+    "ALU_REGS", \
     "DATA_REGS", \
     "ADDR_REGS", \
-    "ACC_REGS", \
     "SPECIAL_REGS", \
     "GENERAL_REGS", \
+    "ACC_REGS", \
     "ALL_REGS" }
 
 /* Program Counter is register number 30 */
@@ -195,6 +196,9 @@ enum vsdsp_address_spaces
   c_register_addr_space ("__imem", ADDR_SPACE_IMEM);   \
 } while (0);
 
+extern bool vsdsp_is_xmem_p(rtx o);
+extern bool vsdsp_is_ymem_p(rtx o);
+extern bool vsdsp_is_imem_p(rtx o);
 
 /* The Overall Framework of an Assembler File */
 

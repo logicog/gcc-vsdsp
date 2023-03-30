@@ -267,8 +267,8 @@
 })
 
 (define_insn "*movsi"
-  [(set (match_operand:SI 0 "nonimmediate_operand" "=r, r, r")
-	(match_operand:SI 1 "general_operand"      "i,  r, A"))]
+  [(set (match_operand:SI 0 "nonimmediate_operand" "=r, r, r, A, zw,  r")
+	(match_operand:SI 1 "general_operand"      "i,  r, A, r,  r, zw"))]
   ""
   { 
     printf("SI Alternative is %d\n", which_alternative);
@@ -286,37 +286,42 @@
     case 1:
       return "mv\t%R1, %R0 # SI1";
     case 2:
-      return "P A move # SI1";
+      return "add\tnull, p, %R0 # SI1";
+    case 3:
+      operands[1] = gen_rtx_REG(HImode, REGNO (operands[0]) + 1);
+      return "resp\t %0, %1 # SI1";
+    case 4:
+      return "sdi\t%1, %0 # SI4";
+    case 5:
+      return "ldi\t%1, %0 # SI5";
     default:
       gcc_unreachable ();
     }
   })
 
 (define_insn "*movhi"
-  [(set (match_operand:HI 0 "nonimmediate_operand" "=r, r, r, m")
-	(match_operand:HI 1 "general_operand"      "i,  m, r, r"))]
+  [(set (match_operand:HI 0 "nonimmediate_operand" "=r,r, r,r,xu,yv,r,A")
+	(match_operand:HI 1 "general_operand"      "i,xu,yv,r, r, r,A,r"))]
   ""
   { 
     printf("HI Alternative is %d\n", which_alternative);
     switch (which_alternative) {
     case 0:
-      return "ldc %1, %0 # HI0";
+      return "ldc\t%1, %0 # HI0";
     case 1:
-      if (MEM_ADDR_SPACE (operands[1]) == ADDR_SPACE_YMEM)
-      {
-        return "ldy\t%1, %0 # HI1";
-      } else {
         return "ldx\t%1, %0 # HI1";
-      }
     case 2:
-      return "mv %1, %0 # HI2";
+        return "ldy\t%1, %0 # HI2";
     case 3:
-      if (MEM_ADDR_SPACE (operands[0]) == ADDR_SPACE_YMEM)
-      {
-        return "sty\t%1, %0 # HI1";
-      } else {
-        return "stx\t%1, %0 # HI1";
-      }
+      return "mv\t%1, %0 # HI3";
+    case 4:
+        return "stx\t%1, %0 # HI4";
+    case 5:
+        return "sty\t%1, %0 # HI5";
+    case 6:
+	return "mv\t , %0 # HI6";
+    case 7:
+	return "mv\t , %0 # HI7";
     default:
       gcc_unreachable ();
     }
@@ -367,25 +372,23 @@
   ldx %0 + %2, null")
 
 (define_insn "mulhisi3"
-  [(set (match_operand:SI 0 "register_operand" "=b")
+  [(set (match_operand:SI 0 "register_operand" "=A")
 	(mult:SI (sign_extend:SI
 		  (match_operand:HI 1 "register_operand" "b"))
 		 (sign_extend:SI
 		  (match_operand:HI 2 "general_operand" "b"))))]
   ""
   {
-    printf("44444444444444444444444444444444444444444444444444444444444444444444\n");
-    return "mulss %0, %1";
+    return "mulss %1, %2 # mulhisi3";
   })
 
 (define_insn "mulhi3"
-  [(set (match_operand:HI 0 "nonimmediate_operand" "=b")
-	(mult:HI (match_operand:HI 1 "register_operand" "b")
-		 (match_operand:HI 2 "general_operand" "b")))]
+  [(set (match_operand:HI 0 "nonimmediate_operand" "=A")
+	(mult:HI (match_operand:HI 1 "register_operand" "r")
+		 (match_operand:HI 2 "general_operand" "r")))]
   ""
   {
-    printf("55555555555555555555555555555555555555555555555555555555555555555555\n");
-    return "mulss %0, %1";
+    return "mulss %1, %2 #mulhi3";
   })
 
 ; Arithmetic shifts left/right

@@ -36,3 +36,42 @@
   "Integer constant 1, for immediate shift counts."
   (and (match_code "const_int")
        (match_test "ival == 1")))
+
+(define_memory_constraint "x"
+  "A register-indirect address in X-Memory."
+  (and (match_code "mem")
+       (match_test "(vsdsp_is_xmem_p(op))")
+       (match_test "(GET_CODE (XEXP (op, 0)) == REG)")))
+
+(define_memory_constraint "y"
+  "A register-indirect address in Y-Memory."
+  (and (match_code "mem")
+       (match_test "(vsdsp_is_ymem_p(op))")
+       (match_test "(GET_CODE (XEXP (op, 0)) == REG)")))
+
+(define_memory_constraint "z"
+  "A register-indirect address in I-Memory."
+  (and (match_code "mem")
+       (match_test "(vsdsp_is_imem_p(op))")
+       (match_test "(GET_CODE (XEXP (op, 0)) == REG)")))
+
+(define_memory_constraint "u"
+  "A post-increment address in X-Memory."
+  (and (match_code "mem")
+       (match_test "(vsdsp_is_xmem_p(op))")
+       (match_test "(GET_CODE (XEXP (op, 0)) == POST_INC)")
+       (match_test "(GET_CODE (XEXP (XEXP (op, 0), 0)) == REG)")))
+
+(define_memory_constraint "v"
+  "A post-increment address in Y-Memory."
+  (and (match_code "mem")
+       (match_test "(vsdsp_is_ymem_p(op))")
+       (match_test "(GET_CODE (XEXP (op, 0)) == POST_INC)")
+       (match_test "(GET_CODE (XEXP (XEXP (op, 0), 0)) == REG)")))
+
+(define_memory_constraint "w"
+  "A post-increment address in Z-Memory."
+  (and (match_code "mem")
+       (match_test "(vsdsp_is_imem_p(op))")
+       (match_test "(GET_CODE (XEXP (op, 0)) == POST_INC)")
+       (match_test "(GET_CODE (XEXP (XEXP (op, 0), 0)) == REG)")))
