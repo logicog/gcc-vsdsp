@@ -20,13 +20,13 @@
 
 # target-specific files
 
-md_file = $(srcdir)/common.md md
+# md_file = $(srcdir)/common.md md
 
-MD_FILES = vsdsp
+# MD_FILES = vsdsp constraints
 
-# Doing it this way lets the gen* programs report the right line numbers.
+# # Doing it this way lets the gen* programs report the right line numbers.
 
-md : $(MD_FILES:%=$(srcdir)/config/vsdsp/%.md) $(srcdir)/config/vsdsp/t-vsdsp
-	for md in $(MD_FILES); do \
-	  echo "(include \"$(srcdir)/config/vsdsp/$$md.md\")"; \
-	done > md
+# md : $(MD_FILES:%=$(srcdir)/config/vsdsp/%.md) $(srcdir)/config/vsdsp/t-vsdsp
+#	for md in $(MD_FILES); do \
+#	  echo "(include \"$(srcdir)/config/vsdsp/$$md.md\")"; \
+#	done > md

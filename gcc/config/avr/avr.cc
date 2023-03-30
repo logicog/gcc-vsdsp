@@ -3,7 +3,7 @@
    Contributed by Denis Chertykov (chertykov@gmail.com)
 
    This file is part of GCC.
-
+avr_progmem_p
    GCC is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
    the Free Software Foundation; either version 3, or (at your option)
@@ -9800,7 +9800,7 @@ avr_addr_space_diagnose_usage (addr_space_t as, location_t loc)
    Return 0   otherwise  */
 
 int
-avr_progmem_p (tree decl, tree attributes)
+vsdsp_xmem_p (tree decl, tree attributes)
 {
   tree a;
 
@@ -9814,7 +9814,7 @@ avr_progmem_p (tree decl, tree attributes)
     return 1;
 
   if (NULL_TREE
-      != lookup_attribute ("progmem", attributes))
+      != lookup_attribute ("xmem", attributes))
     return -1;
 
   a = decl;

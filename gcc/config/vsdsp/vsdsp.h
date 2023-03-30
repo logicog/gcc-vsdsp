@@ -92,8 +92,9 @@
 enum reg_class
 {
   NO_REGS,
+  DATA_REGS,
+  ADDR_REGS,
   GENERAL_REGS,
-  POINTER_REGS,
   ACC_REGS,
   SPECIAL_REGS,
   ALL_REGS,
@@ -105,8 +106,9 @@ extern rtx vsdsp_function_value (const_tree, const_tree);
 
 #define REG_CLASS_CONTENTS \
 {  { 0x00000000 },  /* Empty */			\
-   { 0x00000fff },  /* a0 .. d2 */		\
-   { 0x000ff000 },  /* i0 .. i7 */ 		\
+   { 0x00000fff },  /* DATA_REGS: a0 .. d2 */   \
+   { 0x000ff000 },  /* ADDR_REGS: i0 .. i7 */ 	\
+   { 0x000fffff },  /* GENERAL_REGS */		\
    { 0x30000000 },  /* p0, p1 */		\
    { 0x4ff00000 },  /* lr, lr1, mr0, lc, ls, le, ipr0, ipr1, pc */ \
    { 0x7fffffff }   /* All registers */		\
@@ -135,8 +137,9 @@ extern rtx vsdsp_function_value (const_tree, const_tree);
 
 #define REG_CLASS_NAMES {\
     "NO_REGS", \
+    "DATA_REGS", \
+    "ADDR_REGS", \
     "GENERAL_REGS", \
-    "PINTER_REGS", \
     "ACC_REGS", \
     "SPECIAL_REGS", \
     "ALL_REGS" }
@@ -153,6 +156,23 @@ extern rtx vsdsp_function_value (const_tree, const_tree);
    class to use when it is necessary to copy value X into a register
    in class CLASS.  */
 #define PREFERRED_RELOAD_CLASS(X,CLASS) CLASS
+
+
+/* Address spaces: xmem, ymem and imem for the 3 memory busses */
+enum vsdsp_address_spaces
+{
+  ADDR_SPACE_DEFAULT = 0,
+  ADDR_SPACE_XMEM,
+  ADDR_SPACE_YMEM,
+  ADDR_SPACE_IMEM,
+};
+
+#define REGISTER_TARGET_PRAGMAS() do {                 \
+  c_register_addr_space ("__xmem", ADDR_SPACE_XMEM);   \
+  c_register_addr_space ("__ymem", ADDR_SPACE_YMEM);   \
+  c_register_addr_space ("__imem", ADDR_SPACE_IMEM);   \
+} while (0);
+
 
 /* The Overall Framework of an Assembler File */
 
@@ -228,11 +248,11 @@ extern rtx vsdsp_function_value (const_tree, const_tree);
 #define TRAMPOLINE_ALIGNMENT (abort (), 0)
 
 /* An alias for the machine mode for pointers.  */
-#define Pmode         SImode
+#define Pmode         HImode
 
 /* An alias for the machine mode used for memory references to
    functions being called, in `call' RTL expressions.  */
-#define FUNCTION_MODE QImode
+#define FUNCTION_MODE HImode
 
 /* The register number of the stack pointer register, which must also
    be a fixed register according to `FIXED_REGISTERS'.  */
@@ -275,28 +295,22 @@ extern rtx vsdsp_function_value (const_tree, const_tree);
    register in which the values of called function may come back.  */
 #define FUNCTION_VALUE_REGNO_P(r) (r == 0)
 
-/* A macro whose definition is the name of the class to which a vqalid
+/* A macro whose definition is the name of the class to which a valid
    base register must belong.  A base register is one used in an
    address which is the register value plus a displacement.  */
-#define BASE_REG_CLASS POINTER_REGS
+#define BASE_REG_CLASS ADDR_REGS
 
 #define INDEX_REG_CLASS NO_REGS
 
 /* Map register number to its class */
 #define REGNO_REG_CLASS(R) vsdsp_regno_reg_class(R)
 
+/* True for address registers, i0 through i7.  */
+#define ADDRESS_REGNO_P(REGNO)  IN_RANGE (REGNO, 12, 19)
+
 /* A C expression which is nonzero if register number NUM is suitable
    for use as a base register in operand addresses.  */
-#ifdef REG_OK_STRICT
-#define REGNO_OK_FOR_BASE_P(NUM)                 \
-  (((NUM < FIRST_PSEUDO_REGISTER)                \
-    && ((REGNO_REG_CLASS(NUM) == GENERAL_REGS)   \
-        || (NUM == HARD_FRAME_POINTER_REGNUM))))
-#else
-#define REGNO_OK_FOR_BASE_P(NUM)                 \
-  ((REGNO_REG_CLASS(NUM) == GENERAL_REGS)        \
-   || (NUM >= FIRST_PSEUDO_REGISTER))
-#endif
+#define REGNO_OK_FOR_BASE_P(NUM)  (ADDRESS_REGNO_P(NUM))
 
 /* A C expression which is nonzero if register number NUM is suitable
    for use as an index register in operand addresses.  */
@@ -328,20 +342,6 @@ extern rtx vsdsp_function_value (const_tree, const_tree);
 /* An alias for a machine mode name.  This is the machine mode that
    elements of a jump-table should have.  */
 #define CASE_VECTOR_MODE SImode
-
-/* A C compound statement with a conditional `goto LABEL;' executed
-   if X (an RTX) is a legitimate memory address on the target machine
-   for a memory operand of mode MODE.  */
-#define GO_IF_LEGITIMATE_ADDRESS(MODE,X,LABEL)		\
-  do {                                                  \
-    if (REG_P (X) && REGNO_OK_FOR_BASE_P (REGNO (X)))	\
-      goto LABEL;					\
-    if (GET_CODE (X) == SYMBOL_REF			\
-	|| GET_CODE (X) == LABEL_REF			\
-	|| GET_CODE (X) == CONST)			\
-      goto LABEL;					\
-  } while (0)
-
   
 #define TEXT_SECTION_ASM_OP "\t.text"
 #define DATA_SECTION_ASM_OP "\t.data"

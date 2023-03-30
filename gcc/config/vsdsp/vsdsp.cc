@@ -59,12 +59,12 @@ vsdsp_regno_reg_class (int r)
    static const enum reg_class reg_class_tab[] =
     {
       /* a0 .. d2 */
-      GENERAL_REGS, GENERAL_REGS, GENERAL_REGS, GENERAL_REGS,
-      GENERAL_REGS, GENERAL_REGS, GENERAL_REGS, GENERAL_REGS,
-      GENERAL_REGS, GENERAL_REGS, GENERAL_REGS, GENERAL_REGS,
+      DATA_REGS, DATA_REGS, DATA_REGS, DATA_REGS,
+      DATA_REGS, DATA_REGS, DATA_REGS, DATA_REGS,
+      DATA_REGS, DATA_REGS, DATA_REGS, DATA_REGS,
       /* i0 .. i7 */
-      POINTER_REGS, POINTER_REGS, POINTER_REGS, POINTER_REGS,
-      POINTER_REGS, POINTER_REGS, POINTER_REGS, POINTER_REGS,
+      ADDR_REGS, ADDR_REGS, ADDR_REGS, ADDR_REGS,
+      ADDR_REGS, ADDR_REGS, ADDR_REGS, ADDR_REGS,
       /* lr0, lr1, mr0, lc, ls, le, ipr0, ipr1*/
       SPECIAL_REGS, SPECIAL_REGS, SPECIAL_REGS, SPECIAL_REGS,
       SPECIAL_REGS, SPECIAL_REGS, SPECIAL_REGS, SPECIAL_REGS,
@@ -113,29 +113,6 @@ vsdsp_function_arg_advance (cumulative_args_t cum_v,
           ? *cum + ((3 + VSDSP_FUNCTION_ARG_SIZE (arg.mode, arg.type)) / 4)
           : *cum);
 }
-
-/* The Global `targetm' Variable. */
-
-/* Initialize the GCC target structure.  */
-
-#undef  TARGET_PROMOTE_PROTOTYPES
-#define TARGET_PROMOTE_PROTOTYPES	hook_bool_const_tree_true
-
-#undef  TARGET_RETURN_IN_MEMORY
-#define TARGET_RETURN_IN_MEMORY		vsdsp_return_in_memory
-#undef  TARGET_MUST_PASS_IN_STACK
-#define TARGET_MUST_PASS_IN_STACK	must_pass_in_stack_var_size
-#undef  TARGET_PASS_BY_REFERENCE
-#define TARGET_PASS_BY_REFERENCE    hook_pass_by_reference_must_pass_in_stack
-
-#undef  TARGET_FUNCTION_ARG
-#define TARGET_FUNCTION_ARG             vsdsp_function_arg
-#undef  TARGET_FUNCTION_ARG_ADVANCE
-#define TARGET_FUNCTION_ARG_ADVANCE     vsdsp_function_arg_advance
-
-
-
-struct gcc_target targetm = TARGET_INITIALIZER;
 
 void
 vsdsp_print_operand_address (FILE *file, rtx x)
@@ -228,3 +205,243 @@ vsdsp_print_operand (FILE *file, rtx x, int code)
       return;
     }
 }
+
+/* Valid attributes:
+ * xmem     -  Put data X memory.
+*/
+
+/* Handle a "xmem" attribute; arguments as in
+   struct attribute_spec.handler.  */
+
+static tree
+vsdsp_handle_xmem_attribute (tree *node, tree name,
+				tree args ATTRIBUTE_UNUSED,
+				int flags ATTRIBUTE_UNUSED,
+				bool *no_add_attrs)
+{
+  printf("%s a\n", __func__);
+  if (DECL_P (*node))
+    {
+      printf("%s b\n", __func__);
+      if (TREE_CODE (*node) == TYPE_DECL)
+	{
+	  /* This is really a decl attribute, not a type attribute,
+	     but try to handle it for GCC 3.0 backwards compatibility.  */
+
+	  tree type = TREE_TYPE (*node);
+	  tree attr = tree_cons (name, args, TYPE_ATTRIBUTES (type));
+	  tree newtype = build_type_attribute_variant (type, attr);
+
+	  TYPE_MAIN_VARIANT (newtype) = TYPE_MAIN_VARIANT (type);
+	  TREE_TYPE (*node) = newtype;
+	  *no_add_attrs = true;
+	}
+      else if (TREE_STATIC (*node) || DECL_EXTERNAL (*node))
+	{
+	  printf("%s c\n", __func__);
+          *no_add_attrs = false;
+	}
+      else
+	{
+	  warning (OPT_Wattributes, "%qE attribute ignored",
+		   name);
+	  *no_add_attrs = true;
+	}
+    }
+
+  printf("%s d\n", __func__);
+  return NULL_TREE;
+}
+
+/* Look if DECL shall be placed in program memory space by
+   means of attribute `progmem' or some address-space qualifier.
+   Return non-zero if DECL is data that must end up in Flash and
+   zero if the data lives in RAM (.bss, .data, .rodata, ...).
+
+   Return 1  if attribute `xmem' occurs in DECL or ATTRIBUTES
+   Return 0   otherwise  */
+
+int
+vsdsp_xmem_p (tree decl, tree attributes)
+{
+  tree a;
+
+  printf("%s a\n", __func__);
+  if (TREE_CODE (decl) != VAR_DECL)
+    return 0;
+
+  printf("%s b\n", __func__);
+  if (NULL_TREE
+      != lookup_attribute ("xmem", attributes))
+    return 1;
+
+  a = decl;
+
+  printf("%s c\n", __func__);
+  do
+    a = TREE_TYPE(a);
+  while (TREE_CODE (a) == ARRAY_TYPE);
+
+  if (a == error_mark_node)
+    return 0;
+
+  printf("%s d\n", __func__);
+  if (NULL_TREE != lookup_attribute ("xmem", TYPE_ATTRIBUTES (a)))
+    return 1;
+
+  printf("%s e NO XMEM\n", __func__);
+  return 0;
+}
+
+/* Implement `TARGET_INSERT_ATTRIBUTES'.  */
+
+static void
+vsdsp_insert_attributes (tree node, tree *attributes)
+{
+  /* Add the section attribute if the variable is in progmem.  */
+
+  if (TREE_CODE (node) == VAR_DECL
+      && (TREE_STATIC (node) || DECL_EXTERNAL (node))
+      && vsdsp_xmem_p (node, *attributes))
+    {
+      addr_space_t as;
+      tree node0 = node;
+      printf("%s called in, xmem attr found\n", __func__);
+
+      return;
+
+      /* For C++, we have to peel arrays in order to get correct
+         determination of readonlyness.  */
+
+      do
+        node0 = TREE_TYPE (node0);
+      while (TREE_CODE (node0) == ARRAY_TYPE);
+
+      if (error_mark_node == node0)
+        return;
+
+      as = TYPE_ADDR_SPACE (TREE_TYPE (node));
+
+      *attributes = tree_cons (get_identifier ("xmem"), NULL, *attributes);
+    }
+}
+
+/* Unnamed section callback for progmem*.data/.bss sections.  */
+
+static void
+vsdsp_output_progmem_section_asm_op (const char *data)
+{
+  fprintf (asm_out_file, "\t.section\t%s,\"a\",@progbits\n", data);
+}
+
+/* Implement TARGET_ASM_SELECT_SECTION.
+
+   Return the section into which EXP should be placed.
+
+static section *
+vsdsp_asm_select_section (tree exp, int reloc, unsigned HOST_WIDE_INT align)
+{
+  if (TREE_TYPE (exp) != error_mark_node
+      && TYPE_ADDR_SPACE (TREE_TYPE (exp)) == ADDR_SPACE_LDS)
+    {
+      if (!DECL_P (exp))
+	return get_section (".lds_bss",
+			    SECTION_WRITE | SECTION_BSS | SECTION_DEBUG,
+			    NULL);
+
+      return get_named_section (exp, ".lds_bss", reloc);
+    }
+
+  return default_elf_select_section (exp, reloc, align);
+}
+*/
+
+static section *
+vsdsp_asm_select_section (tree decl, int reloc, unsigned HOST_WIDE_INT align)
+{
+  section * sect = default_elf_select_section (decl, reloc, align);
+
+  printf("%s called\n", __func__);
+  if (TREE_TYPE (decl) == error_mark_node)
+    return sect;
+  
+  if (sect->common.flags & SECTION_NAMED)
+    printf("%s looking at section named %s\n", __func__, sect->named.name);
+  else
+    printf("%s looking at unnamed section\n", __func__);
+
+  if (!vsdsp_xmem_p (decl, DECL_ATTRIBUTES (decl)))
+    return sect;
+  
+  if (DECL_P(decl))
+    printf ("%s is declaration\n", __func__);
+  else
+    printf ("%s NOT declaration\n", __func__);
+
+  if (DECL_P (decl) && vsdsp_xmem_p (decl, DECL_ATTRIBUTES (decl)))
+    {
+      printf ("%s: yes\n", __func__);
+      return get_named_section (decl, ".xmem_bss", reloc);
+    }
+  else {
+    printf("%s that did not work\n", __func__);
+  }
+  return sect;
+}
+
+/* Implement TARGET_ADDR_SPACE_LEGITIMATE_ADDRESS_P.
+   
+   Recognizes RTL expressions that are valid memory addresses for an
+   instruction.  The MODE argument is the machine mode for the MEM
+   expression that wants to use this address. */
+
+static bool
+vsdsp_addr_space_legitimate_address_p (machine_mode mode, rtx x, bool strict,
+					addr_space_t as)
+{
+ //  printf("%s CALLED\n", __func__);
+  return true;  
+}
+
+/* VSDSP attributes.  */
+static const struct attribute_spec vsdsp_attribute_table[] =
+{
+  /* { name, min_len, max_len, decl_req, type_req, fn_type_req,
+       affects_type_identity, handler, exclude } */
+  { "xmem",   0, 0, false, false, false, false,
+    vsdsp_handle_xmem_attribute, NULL },
+  { NULL,     0, 0, false, false, false, false, NULL, NULL }
+};
+
+/* Initialize the GCC target structure.  */
+
+#undef  TARGET_PROMOTE_PROTOTYPES
+#define TARGET_PROMOTE_PROTOTYPES	hook_bool_const_tree_true
+
+#undef  TARGET_RETURN_IN_MEMORY
+#define TARGET_RETURN_IN_MEMORY		vsdsp_return_in_memory
+#undef  TARGET_MUST_PASS_IN_STACK
+#define TARGET_MUST_PASS_IN_STACK	must_pass_in_stack_var_size
+#undef  TARGET_PASS_BY_REFERENCE
+#define TARGET_PASS_BY_REFERENCE    hook_pass_by_reference_must_pass_in_stack
+
+#undef  TARGET_FUNCTION_ARG
+#define TARGET_FUNCTION_ARG             vsdsp_function_arg
+#undef  TARGET_FUNCTION_ARG_ADVANCE
+#define TARGET_FUNCTION_ARG_ADVANCE     vsdsp_function_arg_advance
+
+#undef  TARGET_ATTRIBUTE_TABLE
+#define TARGET_ATTRIBUTE_TABLE vsdsp_attribute_table
+#undef  TARGET_INSERT_ATTRIBUTES
+#define TARGET_INSERT_ATTRIBUTES vsdsp_insert_attributes
+
+#undef  TARGET_ASM_SELECT_SECTION
+#define TARGET_ASM_SELECT_SECTION vsdsp_asm_select_section
+
+
+#undef  TARGET_ADDR_SPACE_LEGITIMATE_ADDRESS_P
+#define TARGET_ADDR_SPACE_LEGITIMATE_ADDRESS_P vsdsp_addr_space_legitimate_address_p
+  
+/* The Global `targetm' Variable. */
+
+struct gcc_target targetm = TARGET_INITIALIZER;
