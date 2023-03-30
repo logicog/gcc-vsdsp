@@ -417,11 +417,11 @@
       return "add\t%1, %2, %0";
     case 1:
         if (XINT (operands[2], 0) > 0)
-	    return "ldx\t(%0)+%2, null # addhi3A";
+	    return "ldx\t(%0)+%D2, null # addhi3A";
 	else if (XINT (operands[2], 0) < 0)
-	    return "ldx\t(%0)%2, null # addhi3B";
+	    return "ldx\t(%0)%D2, null # addhi3B";
 	else
-	    return "ldx\t(%0), null # addhi3C";
+	    return "# addhi3C";
     default:
       gcc_unreachable ();
     }
@@ -435,7 +435,7 @@
   ""
   "@
   sub\t%1, %2, %0
-  ldx\t(%0)-%2, null")
+  ldx\t(%0)-%D2, null # subhi3B")
 
 (define_insn "mulhisi3"
   [(set (match_operand:SI 0 "register_operand" "=A")

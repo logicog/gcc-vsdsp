@@ -47,6 +47,10 @@
 /* This file should be included last.  */
 #include "target-def.h"
 
+#define VSDSP_SYMBOL_FLAG_XDATA (0x1 * SECTION_MACH_DEP)
+#define VSDSP_SYMBOL_FLAG_YDATA (0x2 * SECTION_MACH_DEP)
+#define VSDSP_SYMBOL_FLAG_IMEM (0x4 * SECTION_MACH_DEP)
+
 /* Worker function for TARGET_RETURN_IN_MEMORY.  */
 
 static bool
@@ -145,30 +149,7 @@ static bool
 prologue_saved_reg_p (int regno)
 {
   gcc_assert (regno <= VSDSP_I7);
-
-  /*
-  if (df_regs_ever_live_p (regno) && !call_used_or_fixed_reg_p (regno))
-    return true;
-
-  // 32-bit FP.
-  if (frame_pointer_needed
-      && regno >= HARD_FRAME_POINTER_REGNUM
-      && regno < HARD_FRAME_POINTER_REGNUM + GET_MODE_SIZE (Pmode))
-    return true;
-
-  // 16-bit RA.
-  if (regno == RA_REGNUM && df_regs_ever_live_p (RA_REGNUM))
-    return true;
-  if (regno == RA_REGNUM + 1 && df_regs_ever_live_p (RA_REGNUM + 1))
-    return true;
-
-  /* Save callee-saved registers.
-  for (regno = 0; regno < FIRST_PSEUDO_REGISTER; regno++)
-    if (df_regs_ever_live_p (regno) && (! call_used_or_fixed_reg_p (regno)))
-      cfun->machine->callee_saved_reg_size += 4;
-
-  */
-
+  // TODO: something!!!
   return false;
 }
 
@@ -190,7 +171,6 @@ vsdsp_compute_frame_layout (void)
   save_mask = &cfun->machine->save_mask;
   CLEAR_HARD_REG_SET (*save_mask);
 
-  printf("::::::::::::::: got var_size: %d\n", get_frame_size ());
   var_size = VSDSP_STACK_ALIGN ((HOST_WIDE_INT) get_frame_size ());
   printf("::::::::::::::: aligned var_size: %d\n", var_size);
   out_args_size = VSDSP_STACK_ALIGN ((HOST_WIDE_INT) crtl->outgoing_args_size);
@@ -405,15 +385,34 @@ vsdsp_print_operand (FILE *file, rtx x, int code)
         fprintf (file, "\n\tnop");
       return;
 
+    case 'D':
+      /* Convert byte address into octet address in X/Y mem */
+      if (CONST_INT_P(operand))
+	{
+	  // fprintf (file, "%ld", INTVAL(operand) / 32);
+	  operand = GEN_INT (INTVAL(operand) / 2);
+	  break;
+	}
+      else
+	{
+	  printf ("invalid operand for modifier letter D");
+	  print_rtl(stdout, x);
+	  return;
+	}
+      break;
+
     case 'R':
       /* A 32 bit register name for the ALU-registers a, b, c, d */
       if (GET_CODE (operand) == REG)
 	{
 	  fprintf (file, "%c", 'a' + (REGNO (operand) / 3));
-	} else {
+	}
+      else
+	{
 	  printf ("invalid operand for modifier letter R");
 	  return;
 	}
+      break;
 
     default:
       printf ("invalid operand modifier letter %d", code);
@@ -436,6 +435,27 @@ vsdsp_print_operand (FILE *file, rtx x, int code)
 	 do it for us.  */
       if (CONSTANT_P (operand))
 	{
+	  printf("PRINTING ADDRESS CONSTANT\n");
+	  print_rtl(stdout, operand);
+	  printf("\n");
+	  if (!CONST_INT_P(operand) && GET_CODE (XEXP(operand, 0)) == PLUS) {
+	    printf(" was plus\n");
+	    if (SYMBOL_REF_P (XEXP (XEXP (operand, 0), 0)))
+	      {
+		rtx symbol = XEXP (XEXP (operand, 0), 0);
+		rtx offset = XEXP (XEXP (operand, 0), 1);
+		printf ("%s flags %08x, XDATA %08x\n", __func__, SYMBOL_REF_FLAGS (symbol), VSDSP_SYMBOL_FLAG_XDATA);
+		if (SYMBOL_REF_FLAGS (symbol) & VSDSP_SYMBOL_FLAG_XDATA
+		    || SYMBOL_REF_FLAGS (symbol) & VSDSP_SYMBOL_FLAG_YDATA)
+		  offset = GEN_INT (INTVAL(offset) / 2);
+		if (SYMBOL_REF_FLAGS (symbol) & VSDSP_SYMBOL_FLAG_IMEM)
+		  offset = GEN_INT (INTVAL(offset) / 4);
+		operand = gen_rtx_PLUS (GET_MODE (symbol), symbol, offset);
+		printf("  is SYMBOL_REF, operand now ");
+		print_rtl(stdout, operand);
+		printf("\n");
+	      }
+	  }
 	  output_addr_const (file, operand);
 	  return;
 	}
@@ -569,7 +589,7 @@ vsdsp_insert_attributes (tree node, tree *attributes)
       && (TREE_STATIC (node) || DECL_EXTERNAL (node))
       && vsdsp_xmem_p (node, *attributes))
     {
-      tree node0 = node;
+//      tree node0 = node;
       printf("%s called in, xmem attr found\n", __func__);
 
       return;
@@ -892,6 +912,52 @@ vsdsp_initial_elimination_offset (int from, int to)
   return ret;
 }
 
+/* Implement `TARGET_ENCODE_SECTION_INFO'.  */
+
+static void
+vsdsp_encode_section_info (tree decl, rtx rtl, int new_decl_p)
+{
+  enum tree_code code;
+  rtx symbol;
+
+  /* Careful, do not to prod global register variables.  */
+  if (!MEM_P (rtl))
+    return;
+  symbol = XEXP (rtl, 0);
+  if (GET_CODE (symbol) != SYMBOL_REF)
+    return;
+
+  printf("%s setting defaults\n", __func__);
+  default_encode_section_info (decl, rtl, new_decl_p);
+
+  code = TREE_CODE (decl);
+  if (TREE_CODE_CLASS (code) == tcc_declaration)
+    {
+      tree type = TREE_TYPE (decl);
+      if (code == VAR_DECL && type && TYPE_P (type))
+	{
+	  switch (TYPE_ADDR_SPACE (type))
+	    {
+	    case ADDR_SPACE_XMEM:
+	      SYMBOL_REF_FLAGS (symbol) |= VSDSP_SYMBOL_FLAG_XDATA;
+	      break;
+	    case ADDR_SPACE_YMEM:
+	      SYMBOL_REF_FLAGS (symbol) |= VSDSP_SYMBOL_FLAG_YDATA;
+	      break;
+	    case ADDR_SPACE_IMEM:
+	      SYMBOL_REF_FLAGS (symbol) |= VSDSP_SYMBOL_FLAG_IMEM;
+	      break;
+	    default:
+	      SYMBOL_REF_FLAGS (symbol) |= VSDSP_SYMBOL_FLAG_XDATA;
+	    }
+	    printf("%s called, rtl is: \n", __func__);
+	    print_rtl(stdout, rtl);
+	    printf(", Symbol flags: %08x\n", SYMBOL_REF_FLAGS (symbol));
+	}
+    }
+}
+
+
 /* Initialize the GCC target structure.  */
 
 #undef  TARGET_RETURN_IN_MEMORY
@@ -944,6 +1010,9 @@ vsdsp_initial_elimination_offset (int from, int to)
 
 #undef TARGET_PRINT_OPERAND_PUNCT_VALID_P
 #define TARGET_PRINT_OPERAND_PUNCT_VALID_P vsdsp_print_operand_punct_valid_p
+
+#undef  TARGET_ENCODE_SECTION_INFO
+#define TARGET_ENCODE_SECTION_INFO vsdsp_encode_section_info
 
 /* The Global `targetm' Variable. */
 
