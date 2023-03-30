@@ -25,6 +25,24 @@
 #define BITS_BIG_ENDIAN 0
 #define BYTES_BIG_ENDIAN 1
 #define WORDS_BIG_ENDIAN 1
+#define REG_WORDS_BIG_ENDIAN 0
+
+/* Addressing modes */
+#define HAVE_PRE_INCREMENT 0
+#define HAVE_PRE_DECREMENT 0
+#define HAVE_POST_INCREMENT 1
+#define HAVE_POST_DECREMENT 1
+
+/* Nonzero if the machine supports pre- or post-address side-effect
+   generation involving constants other than the size of the memory
+   operand. */
+#define HAVE_PRE_MODIFY_DISP 0
+#define HAVE_POST_MODIFY_DISP 0
+
+/* Nonzero if the machine supports pre- or
+   post-address side-effect generation involving a register displacement. */
+#define  HAVE_PRE_MODIFY_REG 0
+#define HAVE_POST_MODIFY_REG 1
 
 /* We stick to BITS_PER_UNIT = 8 as this is the size of the
  * a2, b2, c2, d2 registers */
@@ -359,5 +377,7 @@ extern void vsdsp_print_operand_address (FILE *, rtx);
     builtin_assert ("machine=vsdsp"); \
     builtin_define ("__vsdsp__=1"); \
   }
+  
+#define POINTERS_EXTEND_UNSIGNED 1
 
 #endif /* GCC_VSDSP_H */

@@ -126,12 +126,79 @@
 	    print_rtl(stdout, operands[0]);
 	}
       }
-    printf("movsi done\n");
+    printf("movhi done\n");
+})
+
+
+/* Split SI memory access into 2x HI for X and Y memory */
+
+(define_split
+  [(set (match_operand:SI 0 "register_operand" "")
+	    (match_operand:SI 1 "memory_operand" ""))]
+  ""
+  [(set (subreg:HI (match_dup 0) 0)
+	(match_dup 2) )
+   (set (subreg:HI (match_dup 0) 2)
+	(match_dup 3) )]
+{
+/*
+  operands[2] = gen_highpart (SImode, operands[0]);
+  operands[3] = gen_lowpart (SImode, operands[0]); */
+  printf("DOING SPLIT ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\n");
+  print_rtl(stdout, operands[0]);
+  printf("\n");
+  print_rtl(stdout, operands[1]);
+  printf("\n");
+  /*
+  operands[2] = change_address(operands[1], HImode, operands[1]);
+  operands[3] = XEXP (operands[1], 0);
+  */
+  operands[2] = gen_highpart (HImode, operands[1]);
+  operands[3] = gen_lowpart (HImode, operands[1]);
+  printf("\n OP2 now:");
+  print_rtl(stdout, operands[2]);
+  printf("\n OP3 now:");
+  print_rtl(stdout, operands[3]);
+  printf("\n");
+  printf("Doing SPLIT ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\n");
+})
+
+/* Split indirect address with immediate offset into separate post-inc  */
+
+(define_split
+  [(set (match_operand:HI 0 "register_operand" "")
+	    (match_operand:HI 1 "memory_operand" ""))]
+  "(GET_CODE (XEXP (operands[1], 0)) == PLUS)
+    && (GET_CODE ( XEXP (XEXP (operands[1], 0), 0)) == REG)
+    && (GET_CODE ( XEXP (XEXP (operands[1], 0), 1)) == CONST_INT)"
+  
+  [(set (match_dup 3) 
+	(plus:HI (match_dup 3) (match_dup 2)))
+   (set (match_dup 0) (match_dup 4) )]
+{
+  rtx addr;
+  printf("DOING SPLIT immediate offsset ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\n");
+  operands[2] = XEXP (XEXP (operands[1], 0), 1);
+  operands[3] = XEXP (XEXP (operands[1], 0), 0);
+  addr = gen_rtx_MEM(HImode, operands[3]);
+  MEM_COPY_ATTRIBUTES(addr, operands[1]);
+  operands[4] = addr;
+  printf("\n operand 0: ");
+  print_rtl(stdout, operands[0]);
+  printf("\n operand 1: ");
+  print_rtl(stdout, operands[1]);
+  printf("\n  new ins 2: \n");
+  print_rtl(stdout, operands[2]);
+  printf("\n  new ins 3: \n");
+  print_rtl(stdout, operands[3]);
+  printf("\n  new ins 4: \n");
+  print_rtl(stdout, operands[4]);
+  printf("\nDoing SPLIT immediate offsset ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\n");
 })
 
 (define_insn "*movsi"
-  [(set (match_operand:SI 0 "register_operand" "=r, r, r, r")
-	(match_operand:SI 1 "general_operand"  "a,  i, m, r"))]
+  [(set (match_operand:SI 0 "register_operand" "=r")
+	(match_operand:SI 1 "general_operand"  "r"))]
   ""
   { 
     printf("SI Alternative is %d\n", which_alternative);
@@ -142,76 +209,66 @@
     printf("\n");
     switch (which_alternative) {
     case 0:
-      if (MEM_ADDR_SPACE (operands[1]) == ADDR_SPACE_XMEM)
-      {
-        return "ldx i0, %0";
-      } else {
-        return "ldy i0, %0";
-      }
-    case 1:
-      return "ldc %1, %0";
-    case 2:
-      if (MEM_ADDR_SPACE (operands[1]) == ADDR_SPACE_XMEM)
-      {
-        return "ldx %1, %0";
-      } else {
-        return "ldy %1, %0";
-      }
-    case 3:
-      return "mvx %1, %0";
+      return "mv %1, %0 # SI0";
     default:
       gcc_unreachable ();
     }
   })
 
 (define_insn "*movhi"
-  [(set (match_operand:HI 0 "register_operand" "=r, r, r, r")
-	(match_operand:HI 1 "general_operand"  "a,  i, m, r"))]
+  [(set (match_operand:HI 0 "register_operand" "=r, r, r")
+	(match_operand:HI 1 "general_operand"  "i,  m, r"))]
   ""
   { 
     printf("HI Alternative is %d\n", which_alternative);
     switch (which_alternative) {
     case 0:
-      if (MEM_ADDR_SPACE (operands[1]) == ADDR_SPACE_XMEM)
-      {
-        return "ldx i0, %0";
-      } else {
-        return "ldy i0, %0";
-      }
+      return "ldc %1, %0 # HI0";
     case 1:
-      return "ldc %1, %0";
-    case 2:
-      if (MEM_ADDR_SPACE (operands[1]) == ADDR_SPACE_XMEM)
+      if (MEM_ADDR_SPACE (operands[1]) == ADDR_SPACE_YMEM)
       {
-        return "ldcx %1, %0";
+	printf("MEM-MOVE op0 \n");
+	print_rtl(stdout, operands[0]);
+	printf("\n op1 \n");
+	print_rtl(stdout, operands[1]);
+	printf("\n");
+        return "ldy %1, %0 # HI1";
       } else {
-        return "ldcy i1, %0";
+        return "ldx %1, %0 # HI1";
       }
-    case 3:
-      return "mvx %1, %0";
+    case 2:
+      return "mv %1, %0 # HI2";
     default:
       gcc_unreachable ();
     }
   }) 
-  
-  
-  
-(define_insn "movsi_x"
-  [(set (match_operand:SI 0 "register_operand" "")
-	(match_operand:SI 1 "general_operand" ""))]
-  ""
-  { 
-        printf("In movsi_x\n");
-        return "ldx_x %1, %0";
-  })
 
-(define_insn "movsi_y"
-  [(set (match_operand:SI 0 "register_operand" "")
-	(match_operand:SI 1 "general_operand" ""))]
+;; -------------------------------------------------------------------------
+;; Arithmetic instructions
+;; -------------------------------------------------------------------------
+
+; Additions
+
+(define_insn "addhi3"
+  [(set (match_operand:HI 0 "register_operand" "=b, a")
+	  (plus:HI
+	   (match_operand:HI 1 "register_operand" "b, 0")
+	   (match_operand:HI 2 "general_operand" "b, i")))]
   ""
-  { 
-        printf("In movsi_y\n");
-        return "ldy_y %1, %0";
+  "@
+  add %1, %2, %0
+  ldx %0 + %2, null")
+
+
+(define_insn "mulhisi3"
+  [(set (match_operand:SI 0 "nonimmediate_operand" "=A")
+	(mult:SI (sign_extend:SI
+		  (match_operand:HI 1 "general_operand" "d"))
+		 (sign_extend:SI
+		  (match_operand:HI 2 "general_operand" "b"))))]
+  ""
+  {
+    return "mulss %0, %1";
   })
 
 ;; -------------------------------------------------------------------------

@@ -39,6 +39,7 @@
 #include "calls.h"
 #include "expr.h"
 #include "builtins.h"
+#include "print-rtl.h"
 
 /* This file should be included last.  */
 #include "target-def.h"

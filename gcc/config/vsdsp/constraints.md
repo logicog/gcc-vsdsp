@@ -29,3 +29,5 @@
 (define_register_constraint "e" "EXTENSION_REGS"
   "Data (8 bit) register.")
 
+(define_register_constraint "A" "ACC_REGS"
+  "P0/P1 accumulator registers.")
