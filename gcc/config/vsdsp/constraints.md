@@ -31,3 +31,8 @@
 
 (define_register_constraint "A" "ACC_REGS"
   "P0/P1 accumulator registers.")
+
+(define_constraint "I"
+  "Integer constant 1, for immediate shift counts."
+  (and (match_code "const_int")
+       (match_test "ival == 1")))

@@ -189,7 +189,7 @@
    (set (match_dup 0) (match_dup 4) )]
 {
   rtx addr;
-  printf("DOING SPLIT immediate offsset read +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\n");
+  printf("\nDOING SPLIT immediate offsset read +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\n");
   operands[2] = XEXP (XEXP (operands[1], 0), 1);
   operands[3] = XEXP (XEXP (operands[1], 0), 0);
   addr = gen_rtx_MEM(HImode, operands[3]);
@@ -225,8 +225,8 @@
 })
 
 (define_insn "*movsi"
-  [(set (match_operand:SI 0 "nonimmediate_operand" "=r, r")
-	(match_operand:SI 1 "general_operand"  "i, r"))]
+  [(set (match_operand:SI 0 "nonimmediate_operand" "=r, r, r")
+	(match_operand:SI 1 "general_operand"      "i,  r, A"))]
   ""
   { 
     printf("SI Alternative is %d\n", which_alternative);
@@ -238,11 +238,13 @@
     switch (which_alternative) {
     case 0:
       operands[2] = gen_rtx_REG (HImode, REGNO (operands[0]) + 1);
-      operands[3] = gen_rtx_CONST_INT(HImode, XINT(operands[1], 0));
+      operands[3] = gen_rtx_CONST_INT(HImode, XINT(operands[1], 0) & 0xffff);
       operands[4] = gen_rtx_CONST_INT(HImode, XINT(operands[1], 0) >> 16);
       return "ldc\t%3, %2\n\tldc\t%4, %0 # SI0";
     case 1:
       return "mv\t%R1, %R0 # SI1";
+    case 2:
+      return "P A move # SI1";
     default:
       gcc_unreachable ();
     }
@@ -260,11 +262,6 @@
     case 1:
       if (MEM_ADDR_SPACE (operands[1]) == ADDR_SPACE_YMEM)
       {
-	printf("MEM-MOVE op0 \n");
-	print_rtl(stdout, operands[0]);
-	printf("\n op1 \n");
-	print_rtl(stdout, operands[1]);
-	printf("\n");
         return "ldy\t%1, %0 # HI1";
       } else {
         return "ldx\t%1, %0 # HI1";
@@ -274,11 +271,6 @@
     case 3:
       if (MEM_ADDR_SPACE (operands[0]) == ADDR_SPACE_YMEM)
       {
-	printf("MEM-MOVE op0 \n");
-	print_rtl(stdout, operands[0]);
-	printf("\n op1 \n");
-	print_rtl(stdout, operands[1]);
-	printf("\n");
         return "sty\t%1, %0 # HI1";
       } else {
         return "stx\t%1, %0 # HI1";
@@ -336,12 +328,73 @@
 (define_insn "mulhisi3"
   [(set (match_operand:SI 0 "nonimmediate_operand" "=A")
 	(mult:SI (sign_extend:SI
-		  (match_operand:HI 1 "general_operand" "d"))
+		  (match_operand:HI 1 "general_operand" "b"))
 		 (sign_extend:SI
 		  (match_operand:HI 2 "general_operand" "b"))))]
   ""
   {
     return "mulss %0, %1";
+  })
+
+; Arithmetic shift
+; VSDSP only support arithmetic right shift by one bit
+; -> convert asr #n to asl #-n for n > 1
+
+(define_insn_and_split "ashrhi3"
+  [(set (match_operand:HI 0 "register_operand"                "=b")
+        (ashiftrt:HI (match_operand:HI 1 "register_operand"   "b")
+                     (match_operand:HI 2 "nonimmediate_operand"    "b")))]
+  ""
+  "#"
+  ""
+  [(parallel [	(set (match_dup 2) (neg:HI (match_dup 2)))
+                (clobber (reg:CC REG_MR0))])
+   (parallel [  (set (match_dup 0)
+                     (ashift:HI (match_dup 1) (match_dup 2)))
+		(clobber (reg:CC REG_MR0))])
+  ])
+
+(define_peephole2
+  [(set (match_operand:HI 2 "nonimmediate_operand" "") (const_int 1))
+   (parallel [	(set (match_dup 2) (neg:HI (match_dup 2)))
+                (clobber (reg:CC REG_MR0))])
+   (parallel [  (set (match_operand:HI 0 "register_operand" "")
+                     (ashift:HI (match_operand:HI 1 "register_operand" "") (match_dup 2)))
+		(clobber (reg:CC REG_MR0))])]
+  ""
+  [(set (match_dup 0)
+	(ashiftrt:HI (match_dup 1) (const_int 1)))]
+)
+
+(define_insn "ashlhi3"
+  [(set (match_operand:HI 0 "register_operand" "=b")
+	(ashift:HI 
+	   (match_operand:HI 1 "register_operand" "b")
+	   (match_operand:HI 2 "general_operand" "b")))
+    (clobber (reg:CC REG_MR0))]
+  ""
+  {
+    return "ashl %1, %0, %2";
+  })
+
+(define_insn "*ashrhi3i1"
+  [(set (match_operand:HI 0 "register_operand" "=b")
+	(ashiftrt:HI 
+	   (match_operand:HI 1 "register_operand" "b")
+	   (match_operand:HI 2 "immediate_operand" "I")))]
+  ""
+  {
+    return "asr %1, %0";
+  })
+
+(define_insn "neghi2"
+  [(set (match_operand:HI 0 "register_operand" "=b")
+        (neg:HI (match_operand:HI 1 "general_operand" "b")))
+    (clobber (reg:CC REG_MR0))
+  ]
+  ""
+  {
+    return "sub null, %0, %1";
   })
 
 ;; -------------------------------------------------------------------------
@@ -375,9 +428,8 @@
 })
 
 (define_insn "*call"
-  [(call (mem:HI (match_operand:HI
-                  0 "nonmemory_operand" "i,r"))
-         (match_operand 1 "" ""))]
+  [(call (mem:HI (match_operand:HI 0 "memory_operand" "i, r"))
+         (match_operand 1 "immediate_operand" ""))]
   ""
   "@
    jsra\\t%0
@@ -430,7 +482,14 @@
                        (label_ref (match_dup 3))
                        (pc)))]
    {
-     printf("############ cbranchhi4\n");
+    printf("############ cbranchhi4\n");
+    if (GET_CODE (operands[0]) == LEU || GET_CODE (operands[0]) == LTU 
+        || GET_CODE (operands[0]) == GEU || GET_CODE (operands[0]) == GTU )
+      {
+        printf("LEU LEU LEU\n");
+        operands[1] = gen_rtx_ABS(HImode, operands[1]);
+        operands[2] = gen_rtx_ABS(HImode, operands[2]);
+      }
     printf("op0 \n");
     print_rtl(stdout, operands[0]);
     printf("\n op1 \n");
@@ -458,7 +517,10 @@
                        (label_ref (match_dup 3))
                        (pc)))]
    {
-     printf("############ cbranchsi4\n");
+    printf("############ cbranchsi4\n");
+    if (GET_CODE (operands[0]) == LEU || GET_CODE (operands[0]) == LTU 
+        || GET_CODE (operands[0]) == GEU || GET_CODE (operands[0]) == GTU )
+      printf("LEU LEU LEU\n");
     printf("op0 \n");
     print_rtl(stdout, operands[0]);
     printf("\n op1 \n");
@@ -468,9 +530,10 @@
     printf("\n");
    })
 
-(define_code_iterator cond [ne eq lt gt ge le])
-(define_code_attr CC [(ne "zc") (eq "zs") (lt "lt")
-                      (gt "gt") (ge "ge") (le "le") ])
+   /* FIXME: for the u-version we need to use unsigned subtraction */
+(define_code_iterator cond [ne eq lt ltu gt gtu ge geu le leu])
+(define_code_attr CC [(ne "zc") (eq "zs") (lt "lt") (ltu "lt") (gt "gt")
+                      (gtu "gt") (ge "ge") (geu "ge") (le "le") (leu "le")])
 
 (define_insn "*jcc<cond:code>"
   [(set (pc)
@@ -495,6 +558,14 @@
   ""
   "sub\\t%0, %1, %0")
 
+(define_insn "*cmphi_u"
+  [(set (reg:CC REG_MR0)
+	(compare:CC
+	 (abs:HI (match_operand:HI 0 "register_operand" "b"))
+	 (abs:HI (match_operand:HI 1 "general_operand"	"b"))))]
+  ""
+  "sub\\t%0, %1, %0")
+  
 (define_insn "*cmpsi"
   [(set (reg:CC REG_MR0)
 	(compare:CC
