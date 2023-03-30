@@ -40,15 +40,35 @@
 ])
 
 ;;---------------------------------------------------------------------------
-;; VSDSP pipeline description
+;; VSDSP pipeline description (3-stages)
 ;;---------------------------------------------------------------------------
 
-(define_attr "type" "unknown,branch,call, jump"
+(define_attr "type" "unknown,branch,call,jump,icall,nop,arith"
   (const_string "unknown"))
 
 /* One delay slot for branches/calls */
 (define_delay (eq_attr "type" "branch,call,jump")
-              [(eq_attr "type" "!branch,call,jump") (nil) (nil)])
+              [(eq_attr "type" "!branch,call,jump,icall") (nil) (nil)])
+
+/* One delay slot for irq-calls, which is cancelled: TODO: use it!!! */
+(define_delay (eq_attr "type" "icall")
+              [(eq_attr "type" "!branch,call,jump,icall")
+               (eq_attr "type" "!branch,call,jump,icall") (nil)])
+
+(define_automaton   "vsdsp_pipe")
+(define_cpu_unit    "flags,alu,fetch" "vsdsp_pipe")
+
+(define_insn_reservation "vsdsp-int" 3
+  (eq_attr "type" "nop")
+    "fetch, nothing,nothing")
+
+(define_insn_reservation "vsdsp-cof" 3
+  (eq_attr "type" "branch,jump,call,nop")
+    "flags,flags,nothing")
+
+(define_insn_reservation "vsdsp-arith" 3
+  (eq_attr "type" "arith")
+    "alu,alu,flags")
 
 ;; -------------------------------------------------------------------------
 ;; Move instructions
@@ -407,7 +427,8 @@
   ""
   {
     return "ashl %1, %0, %2";
-  })
+  }
+  [(set_attr "type" "arith")])
 
 ; TODO: Is this necessry? Compiler seems anyway to produce add r, r, r
 (define_peephole2
@@ -428,7 +449,8 @@
   ""
   {
     return "asr %1, %0";
-  })
+  }
+  [(set_attr "type" "arith")])
 
 ; TODO: Is this necessry? Compiler seems anyway to produce add r, r, r
 (define_insn "*ashlhi3i1"
@@ -439,7 +461,8 @@
   ""
   {
     return "lsl %1, %0";
-  })
+  }
+  [(set_attr "type" "arith")])
 
 (define_insn "neghi2"
   [(set (match_operand:HI 0 "register_operand" "=b")
@@ -449,7 +472,8 @@
   ""
   {
     return "sub null, %0, %1";
-  })
+  }
+  [(set_attr "type" "arith")])
 
 ;; -------------------------------------------------------------------------
 ;; Jump/Call instructions
@@ -516,7 +540,7 @@
   "call\\t%1%#"
   [(set_attr "type" "call")]  )
 
-; TODO: Needed for -O3, but is this not just a define_expand ?
+; TODO: Needed for -O3 foo_mul.s, but is this not just a define_expand ?
 (define_insn "sibcall_value"
   [(set (match_operand 0 "" "")
 	(call (match_operand:HI 1 "memory_operand" "")
@@ -624,7 +648,8 @@
 	 (match_operand:HI 0 "register_operand" "b")
 	 (match_operand:HI 1 "general_operand"	"b")))]
   ""
-  "sub\\t%0, %1, %0")
+  "sub\\t%0, %1, %0%#"
+  [(set_attr "type" "arith")])
 
 (define_insn "*cmphi_u"
   [(set (reg:CC REG_MR0)
@@ -632,7 +657,8 @@
 	 (abs:HI (match_operand:HI 0 "register_operand" "b"))
 	 (abs:HI (match_operand:HI 1 "general_operand"	"b"))))]
   ""
-  "sub\\t%0, %1, %0")
+  "sub\\t%0, %1, %0%#"
+  [(set_attr "type" "arith")])
   
 (define_insn "*cmpsi"
   [(set (reg:CC REG_MR0)
@@ -640,7 +666,8 @@
 	 (match_operand:SI 0 "register_operand" "b")
 	 (match_operand:SI 1 "general_operand"	"b")))]
   ""
-  "sub\\t%R0, %R1, %R0")
+  "sub\\t%R0, %R1, %R0%#"
+  [(set_attr "type" "arith")])
 
 ;; -------------------------------------------------------------------------
 ;; Looping
@@ -714,7 +741,8 @@
 (define_insn "nop"
   [(const_int 0)]
   ""
-  "nop")
+  "nop"
+  [(set_attr "type" "nop")])
 
 ;; -------------------------------------------------------------------------
 ;; Epilogue
