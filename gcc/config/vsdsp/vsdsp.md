@@ -27,6 +27,9 @@
    (REG_SP      18)
    (REG_LR0     20)
    (REG_MR0     22)
+   (REG_LC	23)
+   (REG_LS	24)
+   (REG_LE	25)
    ])
 
 (define_c_enum "unspec" [
