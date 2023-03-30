@@ -7811,6 +7811,8 @@ void
 switch_to_section (section *new_section, tree decl)
 {
   bool retain_p;
+
+  printf("%s: called\n", __func__);
   if ((new_section->common.flags & SECTION_NAMED)
       && decl != nullptr
       && DECL_P (decl)
@@ -7822,6 +7824,7 @@ switch_to_section (section *new_section, tree decl)
 	 section.  */
       tree used_decl, no_used_decl;
 
+  printf("%s: called a\n", __func__);
       if (retain_p)
 	{
 	  new_section->common.flags |= SECTION_RETAIN;
@@ -7830,6 +7833,7 @@ switch_to_section (section *new_section, tree decl)
 	}
       else
 	{
+  printf("%s: called b\n", __func__);
 	  new_section->common.flags &= ~(SECTION_RETAIN
 					 | SECTION_DECLARED);
 	  used_decl = new_section->named.decl;
@@ -7848,6 +7852,7 @@ switch_to_section (section *new_section, tree decl)
   else if (in_section == new_section)
     return;
 
+  printf("%s: called c\n", __func__);
   in_section = new_section;
 
   switch (SECTION_STYLE (new_section))
@@ -7867,6 +7872,7 @@ switch_to_section (section *new_section, tree decl)
       break;
     }
 
+  printf("%s: called d\n", __func__);
   new_section->common.flags |= SECTION_DECLARED;
 }
 

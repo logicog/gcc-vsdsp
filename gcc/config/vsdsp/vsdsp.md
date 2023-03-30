@@ -67,7 +67,6 @@
  	(match_operand:HI 1 "nonimmediate_operand" ""))]
   ""
   {
-    static int i = 0;
     printf("In movhi op0 %d op1 %d, SYMBOL_REF is %d, MEM is %d, REG is %d\n",
       GET_CODE(operands[0]), GET_CODE(operands[1]), SYMBOL_REF, MEM, REG);
     printf("op0 \n");
@@ -97,7 +96,7 @@
 
 (define_insn "*movsi"
   [(set (match_operand:SI 0 "register_operand" "=r, r, r, r")
-	(match_operand:SI 1 "general_operand"  "a,  i, A, r"))]
+	(match_operand:SI 1 "general_operand"  "a,  i, m, r"))]
   ""
   { 
     printf("SI Alternative is %d\n", which_alternative);
@@ -194,6 +193,7 @@
 	(label_ref (match_operand 0 "" "")))]
   ""
   "jmp %l0%#")
+  
 
 (define_expand "call"
   [(call (match_operand:HI 0 "memory_operand" "")
@@ -243,7 +243,6 @@
   "call\\t%1"
   )
 
-
 ;; -------------------------------------------------------------------------
 ;; nop instruction (total NOP is LDC to NOP)
 ;; -------------------------------------------------------------------------
@@ -262,3 +261,4 @@
   ""
   "jr")
   
+

@@ -184,12 +184,12 @@ enum vsdsp_address_spaces
 
 #define ASM_OUTPUT_ALIGN(STREAM,POWER) \
 	fprintf (STREAM, "\t.p2align\t%d\n", POWER);
+extern void vsdsp_print_operand (FILE *, rtx, int);
+extern void vsdsp_print_operand_address (FILE *, rtx);
 
-#define PRINT_OPERAND(FILE, X, CODE)  \
-  vsdsp_print_operand (FILE, X, CODE)
+#define PRINT_OPERAND(FILE, X, CODE) vsdsp_print_operand (FILE, X, CODE)
 
-#define PRINT_OPERAND_ADDRESS(FILE, ADDR)  \
-  vsdsp_print_operand_address (FILE, ADDR)
+#define PRINT_OPERAND_ADDRESS(FILE, A) vsdsp_print_operand_address (FILE, A)
 
 /* Output and Generation of Labels */
 
