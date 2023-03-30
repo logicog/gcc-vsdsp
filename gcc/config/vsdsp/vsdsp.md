@@ -36,10 +36,10 @@
 
 (define_expand "movsi"
   [(set (match_operand:SI 0 "general_operand" "")
- 	(match_operand:SI 1 "nonimmediate_operand" ""))]
+ 	(match_operand:SI 1 "general_operand" ""))]
   ""
   {
-    printf("In movsi op0 %d op1 %d, SYMBOL_REF is %d, MEM is %d, REG is %d\n",
+    printf("\n ----> In movSI op0 %d op1 %d, SYMBOL_REF is %d, MEM is %d, REG is %d\n",
       GET_CODE(operands[0]), GET_CODE(operands[1]), SYMBOL_REF, MEM, REG);
     printf("op0 \n");
     print_rtl(stdout, operands[0]);
@@ -50,48 +50,49 @@
     if (! (lra_in_progress || reload_completed)) 
       {
         printf("RELOAD reload_completed\n");
-        if (MEM_P (operands[1])) {
-	  int as = MEM_ADDR_SPACE (XEXP (operands[1], 0));
-          printf("OP 1-0, addr space is: %d\n", as);
-          print_rtl(stdout, XEXP (operands[1], 0));
-          printf("\n is MEM_P %d\n", MEM_P(XEXP (operands[1], 0)));
-        }
-        if (MEM_P (operands[0]))
-          {
-            operands[1] = force_reg (HImode, operands[1]);
-            if (MEM_P (XEXP (operands[0], 0)))
-              operands[0] = gen_rtx_MEM (HImode, force_reg (SImode, XEXP (operands[0], 0)));
-          }
           /* A load from memory */
-        else if (MEM_P (operands[1]) && MEM_P (XEXP (operands[1], 0)))
+        if (MEM_P (operands[1]) && MEM_P (XEXP (operands[1], 0)))
           {
             printf("Direc memory load, reloading to register\n");
             operands[1] = gen_rtx_MEM (HImode, force_reg (SImode, XEXP (operands[1], 0)));
           }
 	else if (MEM_P (operands[1]) && (GET_CODE((XEXP (operands[1], 0))) == SYMBOL_REF)) {
 	    /* Make sure to copy over the memory attributes */
+	    printf("SI IN MEM-LOAD\n");
 	    operands[1] = replace_equiv_address(operands[1], 
 			    force_reg (Pmode, XEXP (operands[1], 0)));
 	    printf("\n op1 now (after indirection) \n");
 	    print_rtl(stdout, operands[1]);
 	}
 	else if (MEM_P (operands[0]) && (GET_CODE((XEXP (operands[0], 0))) == SYMBOL_REF)) {
-	    printf("IN MEM-STORE\n");
+	    printf("SI IN MEM-STORE\n");
+	    printf("\n op0 now \n");
 	    operands[0] = replace_equiv_address(operands[0], 
 			    force_reg (Pmode, XEXP (operands[0], 0)));
 	    printf("\n op0 now \n");
 	    print_rtl(stdout, operands[0]);
+	    printf("\n TESTING OP1 \n");
+	    if (CONST_INT_P(operands[1])) {
+	      printf("TREATING CONST\n");
+	      operands[1] = force_reg (SImode, operands[1]);
+	      printf("\n op0 now \n");
+	      print_rtl(stdout, operands[1]);
+	    }
+	    printf("\n :::: op0 now \n");
+	    print_rtl(stdout, operands[0]);
+	    printf("\n :::: op1 now \n");
+	    print_rtl(stdout, operands[1]);
 	}
       }
-    printf("movsi done\n");
+    printf("\n ====> movSI done\n");
 })
 
 (define_expand "movhi"
   [(set (match_operand:HI 0 "general_operand" "")
- 	(match_operand:HI 1 "nonimmediate_operand" ""))]
+ 	(match_operand:HI 1 "general_operand" ""))]
   ""
   {
-    printf("In movhi op0 %d op1 %d, SYMBOL_REF is %d, MEM is %d, REG is %d\n",
+    printf("\n ----> In movHI op0 %d op1 %d, SYMBOL_REF is %d, MEM is %d, REG is %d\n",
       GET_CODE(operands[0]), GET_CODE(operands[1]), SYMBOL_REF, MEM, REG);
     printf("op0 \n");
     print_rtl(stdout, operands[0]);
@@ -101,15 +102,9 @@
     /* If this is a store,  or direct memory load force the value into a register. */
     if (! (lra_in_progress || reload_completed)) 
       {
-        printf("RELOAD reload_completed\n");
-        if (MEM_P (operands[0]))
-          {
-            operands[1] = force_reg (HImode, operands[1]);
-            if (MEM_P (XEXP (operands[0], 0)))
-              operands[0] = gen_rtx_MEM (HImode, force_reg (SImode, XEXP (operands[0], 0)));
-          }
+        printf("RELOAD NOT COMPLETED\n");
           /* A load from memory */
-        else if (MEM_P (operands[1]) && MEM_P (XEXP (operands[1], 0)))
+        if (MEM_P (operands[1]) && MEM_P (XEXP (operands[1], 0)))
           {
             printf("Direct memory load, reloading to register\n");
             operands[1] = gen_rtx_MEM (HImode, force_reg (Pmode, XEXP (operands[1], 0)));
@@ -121,21 +116,22 @@
             operands[1] = gen_rtx_MEM (HImode, force_reg (Pmode, XEXP (operands[0], 0)));
           }
 	else if (MEM_P (operands[1]) && (GET_CODE((XEXP (operands[1], 0))) == SYMBOL_REF)) {
-	    printf("IN MEM-LOAD\n");
+	    printf("HI IN MEM-LOAD\n");
 	    operands[1] = replace_equiv_address(operands[1], 
 			    force_reg (Pmode, XEXP (operands[1], 0)));
 	    printf("\n op1 now \n");
 	    print_rtl(stdout, operands[1]);
 	}
 	else if (MEM_P (operands[0]) && (GET_CODE((XEXP (operands[0], 0))) == SYMBOL_REF)) {
-	    printf("IN MEM-STORE\n");
+	    printf("HI IN MEM-STORE\n");
+	    printf("\n op0 now \n");
 	    operands[0] = replace_equiv_address(operands[0], 
 			    force_reg (Pmode, XEXP (operands[0], 0)));
 	    printf("\n op0 now \n");
 	    print_rtl(stdout, operands[0]);
 	}
       }
-    printf("movhi done\n");
+    printf("\n ====> movHI done\n");
 })
 
 
@@ -160,7 +156,26 @@
   printf("Doing SPLIT ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\n");
 })
 
-/* Split indirect address with immediate offset into separate post-inc  */
+(define_split
+  [(set (match_operand:SI 0 "memory_operand" "")
+	    (match_operand:SI 1 "general_operand" ""))]
+  ""
+  [(set (match_dup 2)
+	(subreg:HI (match_dup 1) 0) )
+   (set (match_dup 3)
+	(subreg:HI (match_dup 1) 2) )]
+{
+  operands[2] = gen_highpart (HImode, operands[0]);
+  operands[3] = gen_lowpart (HImode, operands[0]);
+  printf("\n ++++ OP2 now:");
+  print_rtl(stdout, operands[2]);
+  printf("\n ++++ OP3 now:");
+  print_rtl(stdout, operands[3]);
+  printf("\n");
+  printf("Doing SPLIT ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\n");
+})
+
+/* Split indirect address read with immediate offset into separate post-inc  */
 
 (define_split
   [(set (match_operand:HI 0 "register_operand" "")
@@ -174,27 +189,43 @@
    (set (match_dup 0) (match_dup 4) )]
 {
   rtx addr;
-  printf("DOING SPLIT immediate offsset ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\n");
+  printf("DOING SPLIT immediate offsset read +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\n");
   operands[2] = XEXP (XEXP (operands[1], 0), 1);
   operands[3] = XEXP (XEXP (operands[1], 0), 0);
   addr = gen_rtx_MEM(HImode, operands[3]);
   MEM_COPY_ATTRIBUTES(addr, operands[1]);
   operands[4] = addr;
+})
+
+/* Split indirect address write with immediate offset into separate post-inc  */
+
+(define_split
+  [(set (match_operand:HI 0 "memory_operand" "")
+	    (match_operand:HI 1 "register_operand" ""))]
+  "(GET_CODE (XEXP (operands[0], 0)) == PLUS)
+    && (GET_CODE ( XEXP (XEXP (operands[0], 0), 0)) == REG)
+    && (GET_CODE ( XEXP (XEXP (operands[0], 0), 1)) == CONST_INT)"
+  
+  [(set (match_dup 3) (plus:HI (match_dup 3) (match_dup 2)) )
+   (set (match_dup 4) (match_dup 1)  )]
+{
+  rtx addr;
+  printf("\nDOING SPLIT immediate offsset write +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\n");
   printf("\n operand 0: ");
   print_rtl(stdout, operands[0]);
-  printf("\n operand 1: ");
-  print_rtl(stdout, operands[1]);
-  printf("\n  new ins 2: \n");
+  operands[2] = XEXP (XEXP (operands[0], 0), 1);
+  operands[3] = XEXP (XEXP (operands[0], 0), 0);
+  printf("\n new operand 2: ");
   print_rtl(stdout, operands[2]);
-  printf("\n  new ins 3: \n");
+  printf("\n new operand 3: ");
   print_rtl(stdout, operands[3]);
-  printf("\n  new ins 4: \n");
-  print_rtl(stdout, operands[4]);
-  printf("\nDoing SPLIT immediate offsset ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\n");
+  addr = gen_rtx_MEM(HImode, operands[3]);
+  MEM_COPY_ATTRIBUTES(addr, operands[0]);
+  operands[4] = addr;
 })
 
 (define_insn "*movsi"
-  [(set (match_operand:SI 0 "register_operand" "=r, r")
+  [(set (match_operand:SI 0 "nonimmediate_operand" "=r, r")
 	(match_operand:SI 1 "general_operand"  "i, r"))]
   ""
   { 
@@ -206,17 +237,20 @@
     printf("\n");
     switch (which_alternative) {
     case 0:
-      return "ldc %1, %0 # HI0";
+      operands[2] = gen_rtx_REG (HImode, REGNO (operands[0]) + 1);
+      operands[3] = gen_rtx_CONST_INT(HImode, XINT(operands[1], 0));
+      operands[4] = gen_rtx_CONST_INT(HImode, XINT(operands[1], 0) >> 16);
+      return "ldc\t%3, %2\n\tldc\t%4, %0 # SI0";
     case 1:
-      return "mv %1, %0 # SI0";
+      return "mv\t%R1, %R0 # SI1";
     default:
       gcc_unreachable ();
     }
   })
 
 (define_insn "*movhi"
-  [(set (match_operand:HI 0 "register_operand" "=r, r, r")
-	(match_operand:HI 1 "general_operand"  "i,  m, r"))]
+  [(set (match_operand:HI 0 "nonimmediate_operand" "=r, r, r, m")
+	(match_operand:HI 1 "general_operand"      "i,  m, r, r"))]
   ""
   { 
     printf("HI Alternative is %d\n", which_alternative);
@@ -231,12 +265,24 @@
 	printf("\n op1 \n");
 	print_rtl(stdout, operands[1]);
 	printf("\n");
-        return "ldy %1, %0 # HI1";
+        return "ldy\t%1, %0 # HI1";
       } else {
-        return "ldx %1, %0 # HI1";
+        return "ldx\t%1, %0 # HI1";
       }
     case 2:
       return "mv %1, %0 # HI2";
+    case 3:
+      if (MEM_ADDR_SPACE (operands[0]) == ADDR_SPACE_YMEM)
+      {
+	printf("MEM-MOVE op0 \n");
+	print_rtl(stdout, operands[0]);
+	printf("\n op1 \n");
+	print_rtl(stdout, operands[1]);
+	printf("\n");
+        return "sty\t%1, %0 # HI1";
+      } else {
+        return "stx\t%1, %0 # HI1";
+      }
     default:
       gcc_unreachable ();
     }
