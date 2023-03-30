@@ -170,15 +170,10 @@ extern rtx vsdsp_function_value (const_tree, const_tree);
 /* Program Counter is register number 30 */
 #define PC_REGNUM 30
 
-/* A C expression for the maximum number of consecutive registers of
-   class CLASS needed to hold a value of mode MODE.  */
-#define CLASS_MAX_NREGS(CLASS, MODE) \
-  ((GET_MODE_SIZE (MODE) + UNITS_PER_WORD - 1) / UNITS_PER_WORD)
-
 /* A C expression that places additional restrictions on the register
    class to use when it is necessary to copy value X into a register
    in class CLASS.  */
-#define PREFERRED_RELOAD_CLASS(X,CLASS) CLASS
+#define PREFERRED_RELOAD_CLASS(X,CLASS) vsdsp_preferred_reload_class (X, CLASS)
 
 
 /* Address spaces: xmem, ymem and imem for the 3 memory busses */
@@ -319,8 +314,9 @@ extern void vsdsp_print_operand_address (FILE *, rtx);
 
 /* A C expression that is nonzero if REGNO is the number of a hard
    register in which function arguments are sometimes passed.
-   use a0-d2, i0-i5*/
-#define FUNCTION_ARG_REGNO_P(r) (r >= 3 && r < VSDSP_I6)
+   use a0-d1, i0-i5, do not use any of the sign extension registers */
+#define FUNCTION_ARG_REGNO_P(r) \
+	(r < VSDSP_I6 && (REGNO_REG_CLASS (r) != EXTENSION_REGS))
 
 /* A C expression that is nonzero if REGNO is the number of a hard
    register in which the values of called function may come back.  */
@@ -362,13 +358,16 @@ extern void vsdsp_print_operand_address (FILE *, rtx);
 
 /* A C type for declaring a variable that is used as the first
    argument of `FUNCTION_ARG' and other related values.  */
-#define CUMULATIVE_ARGS unsigned int
+typedef struct vsdsp_args
+{
+  int data_reg;
+  int addr_reg;
+} CUMULATIVE_ARGS;
 
 /* A C statement (sans semicolon) for initializing the variable CUM
-   for the state at the beginning of the argument list.  
-   For moxie, the first arg is passed in register 2 (aka $r0).  */
+   for the state at the beginning of the argument list. */
 #define INIT_CUMULATIVE_ARGS(CUM,FNTYPE,LIBNAME,FNDECL,N_NAMED_ARGS) \
-  (CUM = VSDSP_A2)
+  (CUM.data_reg = VSDSP_B0, CUM.addr_reg = VSDSP_I0)
 
 /* An alias for a machine mode name.  This is the machine mode that
    elements of a jump-table should have.  */
@@ -378,13 +377,18 @@ extern void vsdsp_print_operand_address (FILE *, rtx);
 #define DATA_SECTION_ASM_OP "\t.data"
 #define BSS_SECTION_ASM_OP "\t.section .bss"
   
-/* Run-time Target Specification */
+/* Run-time Target Specification
+
+#define TARGET_OS_CPP_BUILTINS()					\
+	builtin_define ("__fastcall=__attribute__((__fastcall__))");
+*/
 
 #define TARGET_CPU_CPP_BUILTINS() \
   { \
     builtin_assert ("cpu=vsdsp"); \
     builtin_assert ("machine=vsdsp"); \
     builtin_define ("__vsdsp__=1"); \
+    builtin_define ("__fastcall=__attribute__((__fastcall__))");    \
   }
   
 #define POINTERS_EXTEND_UNSIGNED 1

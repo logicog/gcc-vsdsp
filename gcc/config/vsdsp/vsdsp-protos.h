@@ -26,7 +26,7 @@ extern rtx vsdsp_function_value (const_tree, const_tree);
 
 extern void vsdsp_print_operand (FILE *, rtx, int);
 extern void vsdsp_print_operand_address (FILE *, rtx);
-
+extern enum reg_class vsdsp_preferred_reload_class (rtx, enum reg_class);
 extern const char *doloop_begin_output(rtx *operands);
 
 extern const char * doloop_end_output();

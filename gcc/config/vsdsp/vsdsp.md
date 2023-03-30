@@ -91,7 +91,7 @@
     /* If this is a store,  or direct memory load force the value into a register. */
     if (! (lra_in_progress || reload_completed)) 
       {
-        printf("RELOAD reload_completed\n");
+        printf("RELOAD condition fulfilled\n");
         /* A load from memory */
         if (MEM_P (operands[1]) && (GET_CODE((XEXP (operands[1], 0))) == SYMBOL_REF)) {
 	    /* Make sure to copy over the memory attributes */
@@ -271,8 +271,8 @@
     switch (which_alternative) {
     case 0:
       operands[2] = gen_rtx_REG (HImode, REGNO (operands[0]) + 1);
-      operands[3] = gen_rtx_CONST_INT(HImode, XINT(operands[1], 0) & 0xffff);
-      operands[4] = gen_rtx_CONST_INT(HImode, XINT(operands[1], 0) >> 16);
+      operands[3] = gen_rtx_CONST_INT(HImode, XINT(operands[1], 0) >> 16);
+      operands[4] = gen_rtx_CONST_INT(HImode, XINT(operands[1], 0) & 0xffff);
       return "ldc\t%3, %2\n\tldc\t%4, %0 # SI0";
     case 1:
       return "mv\t%R1, %R0 # SI1";

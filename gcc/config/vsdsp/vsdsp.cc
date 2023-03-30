@@ -225,16 +225,21 @@ vsdsp_function_value (const_tree valtype,
   return gen_rtx_REG (TYPE_MODE (valtype), VSDSP_A0);
 }
 
-
 /* Return the next register to be used to hold a function argument or
    NULL_RTX if there's no more space.  */
 static rtx
 vsdsp_function_arg (cumulative_args_t cum_v, const function_arg_info &arg)
 {
   CUMULATIVE_ARGS *cum = get_cumulative_args (cum_v);
+  tree decl = current_function_decl, fntype = TREE_TYPE (decl);
+  bool fastcall_p
+    = lookup_attribute ("fastcall", TYPE_ATTRIBUTES (fntype)) != NULL_TREE;
 
-  if (*cum < 8)
-    return gen_rtx_REG (arg.mode, *cum);
+  printf ("%s called, global fastcall is %d\n", __func__, fastcall_p);
+  printf ("%s: current cum-d: %d, cum-i: %d\n", __func__, cum->data_reg, cum->addr_reg);
+  printf ("%s: current mode: %d (SIMode size %d)\n", __func__, arg.mode, GET_MODE_SIZE (SImode));
+  if (cum->data_reg < 8)
+    return gen_rtx_REG (arg.mode, cum->data_reg);
   else 
     return NULL_RTX;
 }
@@ -249,9 +254,12 @@ vsdsp_function_arg_advance (cumulative_args_t cum_v,
 {
   CUMULATIVE_ARGS *cum = get_cumulative_args (cum_v);
 
-  *cum = (*cum < VSDSP_D0
-          ? *cum + ((3 + VSDSP_FUNCTION_ARG_SIZE (arg.mode, arg.type)) / 4)
-          : *cum);
+  printf("%s: current cum-d %d, cum-i %d\n", __func__, cum->data_reg, cum->addr_reg);
+  printf ("%s arg-size: %d\n", __func__, VSDSP_FUNCTION_ARG_SIZE (arg.mode, arg.type));
+  cum->data_reg = (cum->data_reg < VSDSP_D0
+	  ? cum->data_reg + 1 + VSDSP_FUNCTION_ARG_SIZE (arg.mode, arg.type) / 2
+	  : cum->data_reg);
+  printf("%s: next cum: %d\n", __func__, cum->data_reg);
 }
 
 bool
@@ -570,6 +578,33 @@ vsdsp_asm_select_section (tree decl, int reloc, unsigned HOST_WIDE_INT align)
   return sect;
 }
 
+/* Implement PREFERRED_RELOAD_CLASS.  */
+
+enum reg_class
+
+vsdsp_preferred_reload_class (rtx x, enum reg_class rclass)
+{
+  if (GET_CODE (x) == CONST_INT)
+    return ALU_REGS;
+
+  return rclass;
+}
+
+/* A C expression for the maximum number of consecutive registers of
+   class CLASS needed to hold a value of mode MODE.  */
+static unsigned char
+vsdsp_class_max_nregs (reg_class_t rclass, machine_mode mode)
+{
+  if (rclass == EXTENSION_REGS && mode == HImode)
+	return 2;
+  if (rclass == EXTENSION_REGS && mode == SImode)
+	return 4;
+  if (rclass == SPECIAL_REGS && mode == CCmode)
+	return 1;
+
+  return CEIL (GET_MODE_SIZE (mode), UNITS_PER_WORD);
+}
+
 /* Implement TARGET_ADDR_SPACE_LEGITIMATE_ADDRESS_P.
    
    Recognizes RTL expressions that are valid memory addresses for an
@@ -584,6 +619,22 @@ vsdsp_addr_space_legitimate_address_p (machine_mode mode, rtx x, bool strict,
   return true;  
 }
 
+static tree
+vsdsp_handle_fntype_attribute (tree *node, tree name,
+			       tree args ATTRIBUTE_UNUSED,
+			       int flags ATTRIBUTE_UNUSED,
+			       bool *no_add_attrs)
+{
+  if (TREE_CODE (*node) != FUNCTION_TYPE)
+    {
+      warning (OPT_Wattributes, "%qE attribute only applies to functions",
+	       name);
+      *no_add_attrs = true;
+    }
+
+  return NULL_TREE;
+}
+
 /* VSDSP attributes.  */
 static const struct attribute_spec vsdsp_attribute_table[] =
 {
@@ -591,6 +642,8 @@ static const struct attribute_spec vsdsp_attribute_table[] =
        affects_type_identity, handler, exclude } */
   { "xmem",   0, 0, false, false, false, false,
     vsdsp_handle_xmem_attribute, NULL },
+  { "fastcall",     0, 0, false, true,  true,  false,
+    vsdsp_handle_fntype_attribute, NULL },
   { NULL,     0, 0, false, false, false, false, NULL, NULL }
 };
 
@@ -749,6 +802,9 @@ doloop_end_output()
 
 #undef TARGET_HARD_REGNO_MODE_OK
 #define TARGET_HARD_REGNO_MODE_OK vsdsp_hard_regno_mode_ok
+
+#undef TARGET_CLASS_MAX_NREGS
+#define TARGET_CLASS_MAX_NREGS vsdsp_class_max_nregs
 
 #undef TARGET_CAN_USE_DOLOOP_P
 #define TARGET_CAN_USE_DOLOOP_P vsdsp_can_use_doloop_p
