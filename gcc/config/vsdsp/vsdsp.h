@@ -362,12 +362,14 @@ typedef struct vsdsp_args
 {
   int data_reg;
   int addr_reg;
+  bool is_fastcall;
 } CUMULATIVE_ARGS;
 
 /* A C statement (sans semicolon) for initializing the variable CUM
    for the state at the beginning of the argument list. */
-#define INIT_CUMULATIVE_ARGS(CUM,FNTYPE,LIBNAME,FNDECL,N_NAMED_ARGS) \
-  (CUM.data_reg = VSDSP_B0, CUM.addr_reg = VSDSP_I0)
+#define INIT_CUMULATIVE_ARGS(CUM, FNTYPE, LIBNAME, FNDECL, N_NAMED_ARGS) \
+  vsdsp_init_cumulative_args (&(CUM), (FNTYPE), (LIBNAME), (FNDECL), \
+			(N_NAMED_ARGS) != -1)
 
 /* An alias for a machine mode name.  This is the machine mode that
    elements of a jump-table should have.  */

@@ -28,5 +28,10 @@ extern void vsdsp_print_operand (FILE *, rtx, int);
 extern void vsdsp_print_operand_address (FILE *, rtx);
 extern enum reg_class vsdsp_preferred_reload_class (rtx, enum reg_class);
 extern const char *doloop_begin_output(rtx *operands);
-
 extern const char * doloop_end_output();
+extern void vsdsp_expand_prologue (void);
+extern void vsdsp_expand_epilogue (void);
+
+extern void
+vsdsp_init_cumulative_args (CUMULATIVE_ARGS *cum, tree fntype, rtx libname,
+			    tree fndecl, int caller);

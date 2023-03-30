@@ -802,10 +802,30 @@
   [(set_attr "type" "nop")])
 
 ;; -------------------------------------------------------------------------
-;; Epilogue
+;; Prologue/Epilogue
 ;; -------------------------------------------------------------------------
  
-(define_insn "epilogue"
+(define_expand "prologue"
+  [(clobber (const_int 0))]
+  ""
+  "
+{
+  vsdsp_expand_prologue ();
+  DONE;
+}
+")
+
+(define_expand "epilogue"
   [(return)]
   ""
+  "
+{
+  vsdsp_expand_epilogue ();
+  DONE;
+}
+")
+
+(define_insn "returner"
+  [(return)]
+  "reload_completed"
   "jr")

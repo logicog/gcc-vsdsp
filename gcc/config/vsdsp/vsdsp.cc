@@ -32,6 +32,7 @@
 #include "regs.h"
 #include "memmodel.h"
 #include "emit-rtl.h"
+#include "cgraph.h"
 #include "diagnostic-core.h"
 #include "output.h"
 #include "stor-layout.h"
@@ -225,23 +226,68 @@ vsdsp_function_value (const_tree valtype,
   return gen_rtx_REG (TYPE_MODE (valtype), VSDSP_A0);
 }
 
+void
+vsdsp_init_cumulative_args (CUMULATIVE_ARGS *cum,  /* Argument info to initialize */
+			    tree fntype,	/* tree ptr for function decl */
+			    rtx libname,	/* SYMBOL_REF of library name or 0 */
+			    tree fndecl,
+			    int caller)
+{
+  struct cgraph_node *local_info_node = NULL;
+  struct cgraph_node *target = NULL;
+  tree attrs;
+  
+  if (fndecl)
+    {
+      target = cgraph_node::get (fndecl);
+      if (target)
+	{
+	  target = target->function_symbol ();
+	  local_info_node = cgraph_node::local_info_node (target->decl);
+	  fntype = TREE_TYPE (target->decl);
+
+	  attrs = TYPE_ATTRIBUTES (fntype);
+
+	  if (attrs != NULL_TREE)
+	  cum->is_fastcall
+	    = lookup_attribute ("fastcall", TYPE_ATTRIBUTES (fntype)) != NULL_TREE;
+	}
+      else {
+	cum->is_fastcall = false;
+      }
+    }
+  cum->data_reg = VSDSP_B0;
+  cum->addr_reg = VSDSP_I0;  
+}
+  
 /* Return the next register to be used to hold a function argument or
    NULL_RTX if there's no more space.  */
 static rtx
 vsdsp_function_arg (cumulative_args_t cum_v, const function_arg_info &arg)
 {
   CUMULATIVE_ARGS *cum = get_cumulative_args (cum_v);
-  tree decl = current_function_decl, fntype = TREE_TYPE (decl);
-  bool fastcall_p
-    = lookup_attribute ("fastcall", TYPE_ATTRIBUTES (fntype)) != NULL_TREE;
 
-  printf ("%s called, global fastcall is %d\n", __func__, fastcall_p);
+  printf ("%s called, fastcall is %d\n", __func__, cum->is_fastcall);
+  if (!cum->is_fastcall)
+     return NULL_RTX;
+    
   printf ("%s: current cum-d: %d, cum-i: %d\n", __func__, cum->data_reg, cum->addr_reg);
   printf ("%s: current mode: %d (SIMode size %d)\n", __func__, arg.mode, GET_MODE_SIZE (SImode));
-  if (cum->data_reg < 8)
-    return gen_rtx_REG (arg.mode, cum->data_reg);
-  else 
-    return NULL_RTX;
+    printf("%s testing pmode, reg is %d\n", __func__, cum->data_reg);
+  if (!POINTER_TYPE_P(arg.type)) {
+    printf("%s not pmode, reg is %d\n", __func__, cum->data_reg);
+    if (cum->data_reg < 8) {
+      printf("%s USING REG %d\n", __func__, cum->data_reg);
+      return gen_rtx_REG (arg.mode, cum->data_reg);
+    }
+  } else {
+    printf("%s is Pmode, reg is %d\n", __func__, cum->data_reg);
+    if (cum->addr_reg < VSDSP_I1) {
+      printf("%s USING REG %d\n", __func__, cum->data_reg);
+      return gen_rtx_REG (arg.mode, cum->addr_reg);
+    }
+  }
+  return NULL_RTX;
 }
 
 #define VSDSP_FUNCTION_ARG_SIZE(MODE, TYPE)     \
@@ -256,9 +302,14 @@ vsdsp_function_arg_advance (cumulative_args_t cum_v,
 
   printf("%s: current cum-d %d, cum-i %d\n", __func__, cum->data_reg, cum->addr_reg);
   printf ("%s arg-size: %d\n", __func__, VSDSP_FUNCTION_ARG_SIZE (arg.mode, arg.type));
-  cum->data_reg = (cum->data_reg < VSDSP_D0
-	  ? cum->data_reg + 1 + VSDSP_FUNCTION_ARG_SIZE (arg.mode, arg.type) / 2
-	  : cum->data_reg);
+  printf("%s: Is pointer type %d\n", __func__, POINTER_TYPE_P(arg.type));
+  if (!POINTER_TYPE_P(arg.type)) 
+    cum->data_reg = (cum->data_reg < VSDSP_D0
+	    ? cum->data_reg + 1 + VSDSP_FUNCTION_ARG_SIZE (arg.mode, arg.type) / 2
+	    : cum->data_reg);
+  else
+    cum->addr_reg = (cum->addr_reg < VSDSP_D0 ? cum->addr_reg + 1
+					      : cum->data_reg);
   printf("%s: next cum: %d\n", __func__, cum->data_reg);
 }
 
@@ -750,24 +801,38 @@ doloop_begin_output(rtx *operands)
   s = "loop %0, %l1-1";
   output_asm_insn (s, operands);
 
-  printf("+++++!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! setting label %d\n", cfun->machine->doloop_label);
   return "nop";
 }
 
 const char *
 doloop_end_output()
 {
-  printf("+++++!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! using label %d\n", cfun->machine->doloop_label);
   (*targetm.asm_out.internal_label) (asm_out_file, "L",
 				      cfun->machine->doloop_label);
   cfun->machine->doloop_label = 0;
   return "nop";
 }
 
-/* Initialize the GCC target structure.  */
+void
+vsdsp_expand_prologue(void)
+{
+  printf("PROLOGUE PROLOGUE PROLOGUE PROLOGUE\n");
+  
+  
+}
 
-#undef  TARGET_PROMOTE_PROTOTYPES
-#define TARGET_PROMOTE_PROTOTYPES	hook_bool_const_tree_true
+void
+vsdsp_expand_epilogue(void)
+{
+  printf("EPILOGUE EPILOGUE EPILOGUE EPILOGUE\n");
+  
+  emit_insn(gen_returner());
+}
+
+
+
+
+/* Initialize the GCC target structure.  */
 
 #undef  TARGET_RETURN_IN_MEMORY
 #define TARGET_RETURN_IN_MEMORY		vsdsp_return_in_memory
@@ -782,6 +847,9 @@ doloop_end_output()
 #define TARGET_FUNCTION_ARG_ADVANCE     vsdsp_function_arg_advance
 #undef TARGET_LIBCALL_VALUE
 #define TARGET_LIBCALL_VALUE 		vsdsp_libcall_value
+
+/* #undef  TARGET_PROMOTE_PROTOTYPES */
+/* #define TARGET_PROMOTE_PROTOTYPES	hook_bool_const_tree_true */
 
 #undef TARGET_COMPUTE_FRAME_LAYOUT
 #define TARGET_COMPUTE_FRAME_LAYOUT vsdsp_compute_frame_layout
