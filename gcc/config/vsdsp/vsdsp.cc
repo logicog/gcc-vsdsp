@@ -201,7 +201,7 @@ vsdsp_print_operand (FILE *file, rtx x, int code)
 	  return;
 	}
 
-      printf ("unexpected operand");
+      printf ("unexpected operand, operand type %d, code %d\n", GET_CODE (operand), code);
       return;
     }
 }

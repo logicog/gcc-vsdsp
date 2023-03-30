@@ -19,8 +19,13 @@
 
 (include "constraints.md")
 
+(define_constants
+  [(REG_SP      18)
+   (REG_MR0     22)
+   ])
+
 ;; -------------------------------------------------------------------------
-;; Move instructions  SYMBOL_REF is 50, MEM is 48, REG is 42
+;; Move instructions
 ;; -------------------------------------------------------------------------
 
 ;; SImode
@@ -243,6 +248,34 @@
     }
   }) 
 
+;; Push a register onto the stack
+(define_insn "movsi_push"
+  [(set:SI (mem:SI (pre_inc:SI (reg:SI REG_SP)))
+	(match_operand:SI 0 "register_operand" "r"))]
+  ""
+  "push   $sp, %0")
+
+;; Pop a register from the stack
+(define_insn "movsi_pop"
+  [(set:SI (match_operand:SI 0 "register_operand" "=r")
+	(mem:SI (post_dec:SI (reg:SI REG_SP))))]
+  ""
+  "pop    $sp, %0")
+
+;; Push a register onto the stack
+(define_insn "movhi_push"
+  [(set:HI (mem:HI (pre_inc:HI (reg:HI REG_SP)))
+	(match_operand:HI 0 "register_operand" "r"))]
+  ""
+  "push   $sp, %0")
+
+;; Pop a register from the stack
+(define_insn "movhi_pop"
+  [(set:HI (match_operand:HI 0 "register_operand" "=r")
+	(mem:HI (post_dec:HI (reg:HI REG_SP))))]
+  ""
+  "pop    $sp, %0")
+
 ;; -------------------------------------------------------------------------
 ;; Arithmetic instructions
 ;; -------------------------------------------------------------------------
@@ -336,6 +369,114 @@
   )
 
 ;; -------------------------------------------------------------------------
+;; Branch instructions
+;; -------------------------------------------------------------------------
+
+(define_insn_and_split "cbranchhi4"
+  [(set (pc)
+        (if_then_else (match_operator 0 "ordered_comparison_operator"
+                        [(match_operand:HI 1 "register_operand" "")
+                         (match_operand:HI 2 "nonmemory_operand" "")])
+         (label_ref (match_operand 3 "" ""))
+         (pc)))]
+   ""
+   "#"
+   ""
+   [(set (reg:CC REG_MR0)
+	 (compare:CC (match_dup 1) (match_dup 2)))
+    (set (pc)
+         (if_then_else (match_op_dup 0
+                         [(reg:CC REG_MR0) (const_int 0)])
+                       (label_ref (match_dup 3))
+                       (pc)))]
+   {
+     printf("############ cbranchhi4\n");
+    printf("op0 \n");
+    print_rtl(stdout, operands[0]);
+    printf("\n op1 \n");
+    print_rtl(stdout, operands[1]);
+    printf("\n op2 \n");
+    print_rtl(stdout, operands[2]);
+    printf("\n");
+   })
+
+(define_code_iterator cond [ne eq lt gt ge le])
+(define_code_attr CC [(ne "zc") (eq "zs") (lt "lt")
+                      (gt "gt") (ge "ge") (le "le") ])
+
+(define_insn "*jcc<cond:code>"
+  [(set (pc)
+        (if_then_else (cond (reg:CC REG_MR0)
+                            (const_int 0))
+                      (label_ref (match_operand 0 "" ""))
+                      (pc)))]
+  ""
+{
+  return "j<CC> %l0";
+})
+
+;; -------------------------------------------------------------------------
+;; Compare instructions
+;; -------------------------------------------------------------------------
+
+(define_insn "*cmphi"
+  [(set (reg:CC REG_MR0)
+	(compare:CC
+	 (match_operand:HI 0 "register_operand" "b")
+	 (match_operand:HI 1 "general_operand"	"b")))]
+  ""
+  "sub\\t%0, %1, %0")
+
+(define_insn "*cmpsi"
+  [(set (reg:CC REG_MR0)
+	(compare:CC
+	 (match_operand:SI 0 "register_operand" "b")
+	 (match_operand:SI 1 "general_operand"	"b")))]
+  ""
+  "sub\\t%0, %1, %0")
+
+;; -------------------------------------------------------------------------
+;; Looping
+;; -------------------------------------------------------------------------
+
+(define_expand "doloop_end"
+  [(parallel [(set (pc)
+                   (if_then_else
+                    (ne (match_operand:HI 0 "nonimmediate_operand" "+r,!m")
+                        (const_int 1))
+                    (label_ref (match_operand 1 "" ""))
+                    (pc)))
+              (set (match_dup 0)
+                   (plus:HI (match_dup 0)
+                         (const_int -1)))])]
+  ""
+{
+    printf("expand --------------------------++++++++++++++++++++++ doloop_end\n");
+    if (GET_MODE (operands[0]) != HImode)
+      FAIL;
+})
+
+(define_insn "doloop_end_insn"
+  [(set (pc)
+        (if_then_else
+         (ne (match_operand:HI 0 "nonimmediate_operand" "+r,!m")
+             (const_int 1))
+         (label_ref (match_operand 1 "" ""))
+         (pc)))
+   (set (match_dup 0)
+        (plus:HI (match_dup 0)
+              (const_int -1)))]
+  ""
+  {
+    printf("insn --------------------------++++++++++++++++++++++ doloop_end\n");
+    if (which_alternative == 0)
+      return "sob %0,%l1";
+    /* emulate sob */
+    output_asm_insn ("dec %0", operands);
+    return "bne %l1";
+  })
+
+;; -------------------------------------------------------------------------
 ;; nop instruction (total NOP is LDC to NOP)
 ;; -------------------------------------------------------------------------
 
@@ -352,5 +493,3 @@
   [(return)]
   ""
   "jr")
-  
-

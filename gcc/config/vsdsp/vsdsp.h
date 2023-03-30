@@ -230,6 +230,12 @@ extern void vsdsp_print_operand_address (FILE *, rtx);
 
 /* STACK AND CALLING */
 
+/* Define this if pushing a word on the stack
+   makes the stack pointer a smaller address.  */
+/* #define STACK_GROWS_DOWNWARD */
+
+#define STACK_PUSH_CODE PRE_INC
+
 #define INITIAL_FRAME_POINTER_OFFSET(DEPTH) (DEPTH) = 0;
 #define FIRST_PARM_OFFSET(F) 0
 
