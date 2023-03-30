@@ -176,6 +176,16 @@ vsdsp_print_operand (FILE *file, rtx x, int code)
       /* No code, print as usual.  */
       break;
 
+    case 'R':
+      /* A 32 bit register name for the ALU-registers a, b, c, d */
+      if (GET_CODE (operand) == REG)
+	{
+	  fprintf (file, "%c", 'a' + (REGNO (operand) / 3));
+	} else {
+	  printf ("invalid operand for modifier letter R");
+	  return;
+	}
+
     default:
       printf ("invalid operand modifier letter %d", code);
       return;
@@ -416,10 +426,11 @@ vsdsp_hard_regno_nregs (unsigned int regno, machine_mode mode)
 
   switch (REGNO_REG_CLASS (regno))
     {
+    case DATA_REGS:
     case ALU_REGS:
       /* Store 32bit integers in 40bit registers a,b,c,d which are a0-a2 */
       if (mode == SImode)
-	return 2;  // TODO: why does 3 not work, it is correct!
+	return 2;
       reg_size = 16;
       break;
     case EXTENSION_REGS:
@@ -437,6 +448,12 @@ vsdsp_hard_regno_nregs (unsigned int regno, machine_mode mode)
 static bool
 vsdsp_hard_regno_mode_ok (unsigned int regno, machine_mode mode)
 {
+  /* We do not allow the register allocator to use the sign-extension
+     registers but merely make use of them in explicit asm code. */
+
+  if (REGNO_REG_CLASS(regno) == EXTENSION_REGS)
+    return false;
+
   switch (mode)
     {
     case SImode:
@@ -448,8 +465,6 @@ vsdsp_hard_regno_mode_ok (unsigned int regno, machine_mode mode)
 	return true;
       break;
     case HImode:
-      if (regno != VSDSP_A2 || regno != VSDSP_B2
-	|| regno != VSDSP_C2 || regno != VSDSP_D2)
 	return true;
       break;
     case QImode:

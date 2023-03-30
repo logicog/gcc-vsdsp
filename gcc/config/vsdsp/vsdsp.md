@@ -20,7 +20,11 @@
 (include "constraints.md")
 
 (define_constants
-  [(REG_SP      18)
+  [(REG_A1	 1)
+   (REG_B1	 4)
+   (REG_C1	 7)
+   (REG_D1	10)
+   (REG_SP      18)
    (REG_MR0     22)
    ])
 
@@ -146,18 +150,6 @@
    (set (subreg:HI (match_dup 0) 2)
 	(match_dup 3) )]
 {
-/*
-  operands[2] = gen_highpart (SImode, operands[0]);
-  operands[3] = gen_lowpart (SImode, operands[0]); */
-  printf("DOING SPLIT ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\n");
-  print_rtl(stdout, operands[0]);
-  printf("\n");
-  print_rtl(stdout, operands[1]);
-  printf("\n");
-  /*
-  operands[2] = change_address(operands[1], HImode, operands[1]);
-  operands[3] = XEXP (operands[1], 0);
-  */
   operands[2] = gen_highpart (HImode, operands[1]);
   operands[3] = gen_lowpart (HImode, operands[1]);
   printf("\n OP2 now:");
@@ -202,8 +194,8 @@
 })
 
 (define_insn "*movsi"
-  [(set (match_operand:SI 0 "register_operand" "=r")
-	(match_operand:SI 1 "general_operand"  "r"))]
+  [(set (match_operand:SI 0 "register_operand" "=r, r")
+	(match_operand:SI 1 "general_operand"  "i, r"))]
   ""
   { 
     printf("SI Alternative is %d\n", which_alternative);
@@ -214,6 +206,8 @@
     printf("\n");
     switch (which_alternative) {
     case 0:
+      return "ldc %1, %0 # HI0";
+    case 1:
       return "mv %1, %0 # SI0";
     default:
       gcc_unreachable ();
@@ -400,6 +394,34 @@
     printf("\n");
    })
 
+(define_insn_and_split "cbranchsi4"
+  [(set (pc)
+        (if_then_else (match_operator 0 "ordered_comparison_operator"
+                        [(match_operand:SI 1 "register_operand" "")
+                         (match_operand:SI 2 "nonmemory_operand" "")])
+         (label_ref (match_operand 3 "" ""))
+         (pc)))]
+   ""
+   "#"
+   ""
+   [(set (reg:CC REG_MR0)
+	 (compare:CC (match_dup 1) (match_dup 2)))
+    (set (pc)
+         (if_then_else (match_op_dup 0
+                         [(reg:CC REG_MR0) (const_int 0)])
+                       (label_ref (match_dup 3))
+                       (pc)))]
+   {
+     printf("############ cbranchsi4\n");
+    printf("op0 \n");
+    print_rtl(stdout, operands[0]);
+    printf("\n op1 \n");
+    print_rtl(stdout, operands[1]);
+    printf("\n op2 \n");
+    print_rtl(stdout, operands[2]);
+    printf("\n");
+   })
+
 (define_code_iterator cond [ne eq lt gt ge le])
 (define_code_attr CC [(ne "zc") (eq "zs") (lt "lt")
                       (gt "gt") (ge "ge") (le "le") ])
@@ -433,7 +455,7 @@
 	 (match_operand:SI 0 "register_operand" "b")
 	 (match_operand:SI 1 "general_operand"	"b")))]
   ""
-  "sub\\t%0, %1, %0")
+  "sub\\t%R0, %R1, %R0")
 
 ;; -------------------------------------------------------------------------
 ;; Looping

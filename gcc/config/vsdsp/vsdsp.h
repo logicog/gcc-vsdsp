@@ -126,7 +126,7 @@ extern rtx vsdsp_function_value (const_tree, const_tree);
 
 #define REG_CLASS_CONTENTS \
 {  { 0x00000000 },  /* Empty */				\
-   { 0x000006db },  /* ALU_REGS: a0, a1, .. d0, d2 */   \
+   { 0x000006db },  /* ALU_REGS: a0, a1, .. d0, d1 */   \
    { 0x00000924 },  /* EXTENSION_REGS: a2 .. d2 */   	\
    { 0x00000fff },  /* DATA_REGS: a0 .. d2 */   	\
    { 0x000ff000 },  /* ADDR_REGS: i0 .. i7 */ 		\
