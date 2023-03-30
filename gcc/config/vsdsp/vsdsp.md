@@ -212,7 +212,9 @@
   
   [(set (match_dup 3) 
 	(plus:HI (match_dup 3) (match_dup 2)))
-   (set (match_dup 0) (match_dup 4) )]
+   (set (match_dup 0) (match_dup 4) )
+   (set (match_dup 3) 
+	(minus:HI (match_dup 3) (match_dup 2)))]
 {
   rtx addr;
   printf("\nDOING SPLIT immediate offsset read +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\n");
@@ -228,8 +230,6 @@
   
 })
 
-/* Split indirect address write with immediate offset into separate post-inc  */
-
 (define_split
   [(set (match_operand:HI 0 "memory_operand" "")
 	    (match_operand:HI 1 "register_operand" ""))]
@@ -238,7 +238,8 @@
     && (GET_CODE ( XEXP (XEXP (operands[0], 0), 1)) == CONST_INT)"
   
   [(set (match_dup 3) (plus:HI (match_dup 3) (match_dup 2)) )
-   (set (match_dup 4) (match_dup 1)  )]
+   (set (match_dup 4) (match_dup 1)  )
+   (set (match_dup 3) (minus:HI (match_dup 3) (match_dup 2)) )]
 {
   rtx addr;
   printf("\nDOING SPLIT immediate offsset write +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\n");
@@ -254,8 +255,34 @@
   MEM_COPY_ATTRIBUTES(addr, operands[0]);
   operands[4] = addr;
   printf("\n new operand 4: ");
-  print_rtl(stdout, operands[3]);
+  print_rtl(stdout, operands[4]);
 })
+
+/* Because we replace indirect memory reads/writes with offset into
+   reads/writes with increment/decrement we find many instances with 2
+   increments/decrements of pointer registers directly together. */
+
+(define_peephole2
+  [(set (match_operand:HI 1 "register_operand" "") 
+        (minus:HI (match_dup 1) (match_operand:HI 2 "immediate_operand" "")) )
+   (set (match_dup 1) (plus:HI (match_dup 1) (match_operand:HI 3 "immediate_operand" "")) )]
+  ""
+  [(set (match_dup 1) (plus:HI (match_dup 1) (match_dup 4)))]
+  {
+    operands[4] = gen_rtx_CONST_INT(HImode, XINT(operands[3], 0) - XINT(operands[2], 0));
+  }
+)
+
+(define_peephole2
+  [(set (match_operand:HI 1 "register_operand" "") 
+        (plus:HI (match_dup 1) (match_operand:HI 2 "immediate_operand" "")) )
+   (set (match_dup 1) (minus:HI (match_dup 1) (match_operand:HI 3 "immediate_operand" "")) )]
+  ""
+  [(set (match_dup 1) (plus:HI (match_dup 1) (match_dup 4)))]
+  {
+    operands[4] = gen_rtx_CONST_INT(HImode, XINT(operands[2], 0) - XINT(operands[3], 0));
+  }
+)
 
 (define_insn "*movsi"
   [(set (match_operand:SI 0 "nonimmediate_operand" "=r, r, r, A, zw,  r")
@@ -270,6 +297,8 @@
     printf("\n");
     switch (which_alternative) {
     case 0:
+      if (!XINT(operands[1], 0))
+	return "and\t%R0,null,%R0";
       operands[2] = gen_rtx_REG (HImode, REGNO (operands[0]) + 1);
       operands[3] = gen_rtx_CONST_INT(HImode, XINT(operands[1], 0) >> 16);
       operands[4] = gen_rtx_CONST_INT(HImode, XINT(operands[1], 0) & 0xffff);
@@ -338,19 +367,38 @@
   ""
   "pop    $sp, %0")
 
+/*
 ;; Push a register onto the stack
 (define_insn "movhi_push"
   [(set:HI (mem:HI (pre_inc:HI (reg:HI REG_SP)))
 	(match_operand:HI 0 "register_operand" "r"))]
   ""
   "push   $sp, %0")
+*/
 
-;; Pop a register from the stack
-(define_insn "movhi_pop"
-  [(set:HI (match_operand:HI 0 "register_operand" "=r")
-	(mem:HI (post_dec:HI (reg:HI REG_SP))))]
+(define_expand "movhi_push"
+  [ (set (reg:HI REG_SP) (plus:HI (reg:HI REG_SP) (const_int 2)) )
+    (set:HI (mem:HI (reg:HI REG_SP))
+	(match_operand:HI 0 "register_operand" "r"))]
   ""
-  "pop    $sp, %0")
+{
+  printf("In movhi_push\n");
+  printf("op0 \n");
+  print_rtl(stdout, operands[0]);
+  printf("\n");
+ })
+
+(define_expand "movhi_pop"
+  [ (set:HI (match_operand:HI 0 "register_operand" "r")
+            (mem:HI (reg:HI REG_SP)))
+    (set (reg:HI REG_SP) (minus:HI (reg:HI REG_SP) (const_int 2)) )]
+  ""
+{
+  printf("In movhi_pop\n");
+  printf("op0 \n");
+  print_rtl(stdout, operands[0]);
+  printf("\n");
+ })
 
 ;; -------------------------------------------------------------------------
 ;; Arithmetic instructions
