@@ -92,13 +92,8 @@
     if (! (lra_in_progress || reload_completed)) 
       {
         printf("RELOAD reload_completed\n");
-          /* A load from memory */
-        if (MEM_P (operands[1]) && MEM_P (XEXP (operands[1], 0)))
-          {
-            printf("Direc memory load, reloading to register\n");
-            operands[1] = gen_rtx_MEM (HImode, force_reg (SImode, XEXP (operands[1], 0)));
-          }
-	else if (MEM_P (operands[1]) && (GET_CODE((XEXP (operands[1], 0))) == SYMBOL_REF)) {
+        /* A load from memory */
+        if (MEM_P (operands[1]) && (GET_CODE((XEXP (operands[1], 0))) == SYMBOL_REF)) {
 	    /* Make sure to copy over the memory attributes */
 	    printf("SI IN MEM-LOAD\n");
 	    operands[1] = replace_equiv_address(operands[1], 
@@ -145,19 +140,8 @@
     if (! (lra_in_progress || reload_completed)) 
       {
         printf("RELOAD NOT COMPLETED\n");
-          /* A load from memory */
-        if (MEM_P (operands[1]) && MEM_P (XEXP (operands[1], 0)))
-          {
-            printf("Direct memory load, reloading to register\n");
-            operands[1] = gen_rtx_MEM (HImode, force_reg (Pmode, XEXP (operands[1], 0)));
-          }
-          /* A store to memory */
-        else if (MEM_P (operands[0]) && MEM_P (XEXP (operands[0], 0)))
-          {
-            printf("Direct memory load, reloading to register\n");
-            operands[1] = gen_rtx_MEM (HImode, force_reg (Pmode, XEXP (operands[0], 0)));
-          }
-	else if (MEM_P (operands[1]) && (GET_CODE((XEXP (operands[1], 0))) == SYMBOL_REF)) {
+        /* A load from memory */
+	if (MEM_P (operands[1]) && (GET_CODE((XEXP (operands[1], 0))) == SYMBOL_REF)) {
 	    printf("HI IN MEM-LOAD\n");
 	    operands[1] = replace_equiv_address(operands[1], 
 			    force_reg (Pmode, XEXP (operands[1], 0)));
@@ -235,8 +219,13 @@
   operands[2] = XEXP (XEXP (operands[1], 0), 1);
   operands[3] = XEXP (XEXP (operands[1], 0), 0);
   addr = gen_rtx_MEM(HImode, operands[3]);
+  printf("\n ++++ OP1 was:");
+  print_rtl(stdout, operands[1]);
   MEM_COPY_ATTRIBUTES(addr, operands[1]);
   operands[4] = addr;
+  printf("\n ++++ OP4 now:");
+  print_rtl(stdout, operands[4]);
+  
 })
 
 /* Split indirect address write with immediate offset into separate post-inc  */
@@ -264,6 +253,8 @@
   addr = gen_rtx_MEM(HImode, operands[3]);
   MEM_COPY_ATTRIBUTES(addr, operands[0]);
   operands[4] = addr;
+  printf("\n new operand 4: ");
+  print_rtl(stdout, operands[3]);
 })
 
 (define_insn "*movsi"
@@ -304,6 +295,12 @@
 	(match_operand:HI 1 "general_operand"      "i,xu,yv,r, r, r,A,r"))]
   ""
   { 
+    printf(">>>>>>>>>>>>>>> HI Alternative is %d\n", which_alternative);
+    printf("op0 \n");
+    print_rtl(stdout, operands[0]);
+    printf("\n op1 \n");
+    print_rtl(stdout, operands[1]);
+    printf("\n");
     printf("HI Alternative is %d\n", which_alternative);
     switch (which_alternative) {
     case 0:
@@ -371,6 +368,16 @@
   add %1, %2, %0
   ldx %0 + %2, null")
 
+(define_insn "subhi3"
+  [(set (match_operand:HI 0 "register_operand" "=b, a")
+	  (minus:HI
+	   (match_operand:HI 1 "register_operand" "b, 0")
+	   (match_operand:HI 2 "general_operand" "b, i")))]
+  ""
+  "@
+  sub %1, %2, %0
+  ldx %0 - %2, null")
+
 (define_insn "mulhisi3"
   [(set (match_operand:SI 0 "register_operand" "=A")
 	(mult:SI (sign_extend:SI
@@ -429,7 +436,7 @@
     (clobber (reg:CC REG_MR0))]
   ""
   {
-    return "ashl %1, %0, %2";
+    return "ashl\t%1, %2, %0";
   }
   [(set_attr "type" "arith")])
 
@@ -475,6 +482,53 @@
   ""
   {
     return "sub null, %0, %1";
+  }
+  [(set_attr "type" "arith")])
+
+(define_insn "lshrhi3i1"
+  [(set (match_operand:HI 0 "register_operand" "=b")
+	(lshiftrt:HI 
+	   (match_operand:HI 1 "register_operand" "b")
+	   (match_operand:HI 2 "immediate_operand" "I")))]
+  ""
+  {
+    printf("Outputting lshrhi3i1 ************************** \n");
+    return "lsr %1, %0";
+  }
+  [(set_attr "type" "arith")])
+
+(define_expand "lshrhi3"
+  [(set (match_operand:HI 0 "register_operand" "=b")
+	(lshiftrt:HI 
+	   (match_operand:HI 1 "register_operand" "b")
+	   (match_operand:HI 2 "general_operand" "b")))
+    (clobber (reg:CC REG_MR0))]
+  ""
+  {
+    rtx test;
+    rtx_code_label *j_label;
+    int shift;
+    printf("Outputting lshrhi3 ************************** \n");
+    if (GET_CODE(operands[2]) != CONST_INT)
+      {
+	j_label = gen_label_rtx ();
+	test = gen_rtx_GT (VOIDmode, operands[2], const0_rtx);
+        emit_jump_insn (gen_cbranchhi4 (test, operands[2], const0_rtx, j_label));
+	emit_insn (gen_lshrhi3i1 (operands[1], operands[1], GEN_INT (1)));
+        emit_label (j_label);
+        LABEL_NUSES (j_label)++;
+	emit_insn (gen_subhi3 (operands[2], GEN_INT (1), operands[2]));
+        emit_insn (gen_ashlhi3 (operands[0], operands[1], operands[2]));
+        DONE;
+       }
+    printf("**** is INT\n");
+    shift = XINT (operands[2], 0);
+    if (shift > 0) {
+      emit_insn (gen_lshrhi3i1 (operands[1], operands[1], GEN_INT (1)));
+      shift = 1 - shift;
+    }
+    emit_insn (gen_ashlhi3 (operands[0], operands[1], GEN_INT(shift)));
+    DONE;
   }
   [(set_attr "type" "arith")])
 

@@ -84,8 +84,22 @@ vsdsp_regno_reg_class (int r)
 struct GTY (()) machine_function
 {
   /* The current lable number at the end of a doloop
-   * Since we hw-loops cannot be nested, we only need this once */
+   * Since hw-loops cannot be nested, we only need this once */
   int doloop_label;
+  /* Mask of registers to save.  */
+  HARD_REG_SET save_mask;
+  /* Number of bytes that the entire frame takes up.  */
+  int total_size;
+  /* Number of bytes that variables take up.  */
+  int var_size;
+  /* Number of bytes that outgoing arguments take up.  */
+  int out_args_size;
+  /* Number of bytes needed to store registers in frame.  */
+  int save_reg_size;
+  /* Offset from new stack pointer to store registers.  */
+  int save_regs_offset;
+  /* True if final frame layout is already calculated.  */
+  bool initialized;
 };
 
 /* Zero initialization is OK for all current fields.  */
@@ -103,6 +117,105 @@ vsdsp_option_override (void)
 {
   /* Set the per-function-data initializer.  */
   init_machine_status = vsdsp_init_machine_status;
+}
+
+/* Stack layout and calling conventions.
+
+   In the VSDSP ABI, the stack grows upward. There is no frame pointer
+   GCC implements a frame pointer.
+   The stack layout is shown below:
+
+    SP ---------------------- high address
+	| outgoing args     ^
+        ---------------     |
+	| local_vars	    |
+        ---------------     | total
+	| save_regs	    | frame
+    FP ---------------	    | size
+	| pretend_args	    V
+	-----call-boundary---
+	| incoming args
+       ---------------------- low address
+
+ */
+
+/* Return true if REGNO should be saved in the prologue.  */
+static bool
+prologue_saved_reg_p (int regno)
+{
+  gcc_assert (regno <= VSDSP_I7);
+
+  /*
+  if (df_regs_ever_live_p (regno) && !call_used_or_fixed_reg_p (regno))
+    return true;
+
+  // 32-bit FP.
+  if (frame_pointer_needed
+      && regno >= HARD_FRAME_POINTER_REGNUM
+      && regno < HARD_FRAME_POINTER_REGNUM + GET_MODE_SIZE (Pmode))
+    return true;
+
+  // 16-bit RA.
+  if (regno == RA_REGNUM && df_regs_ever_live_p (RA_REGNUM))
+    return true;
+  if (regno == RA_REGNUM + 1 && df_regs_ever_live_p (RA_REGNUM + 1))
+    return true;
+  */
+
+  return false;
+}
+
+#define VSDSP_STACK_ALIGN(LOC)  ROUND_UP ((LOC), 16 / BITS_PER_UNIT)
+
+static void
+vsdsp_compute_frame_layout (void)
+{
+  int regno;
+  HARD_REG_SET *save_mask;
+  int total_size;
+  int var_size;
+  int out_args_size;
+  int save_reg_size;
+
+  printf(":::::::::::::::::: %s called\n", __func__);
+  gcc_assert (!cfun->machine->initialized);
+
+  save_mask = &cfun->machine->save_mask;
+  CLEAR_HARD_REG_SET (*save_mask);
+
+  var_size = VSDSP_STACK_ALIGN ((HOST_WIDE_INT) get_frame_size ());
+  printf("::::::::::::::: got var_size: %d\n", var_size);
+  out_args_size = VSDSP_STACK_ALIGN ((HOST_WIDE_INT) crtl->outgoing_args_size);
+  printf("::::::::::::::: got outgoing_args_size: %d\n", total_size);
+  total_size = var_size + out_args_size;
+
+  /* Calculate space needed for gp registers.  */
+  save_reg_size = 0;
+  for (regno = 0; regno <= VSDSP_I7; regno++)
+    if (prologue_saved_reg_p (regno))
+      {
+	SET_HARD_REG_BIT (*save_mask, regno);
+	save_reg_size += 1;
+      }
+
+  save_reg_size = VSDSP_STACK_ALIGN (save_reg_size);
+  total_size += save_reg_size;
+  total_size += VSDSP_STACK_ALIGN (crtl->args.pretend_args_size);
+
+  /* Save other computed information.  */
+  cfun->machine->total_size = total_size;
+  cfun->machine->var_size = var_size;
+  cfun->machine->out_args_size = out_args_size;
+  cfun->machine->save_reg_size = save_reg_size;
+  cfun->machine->initialized = reload_completed;
+  cfun->machine->save_regs_offset = out_args_size + var_size;
+  printf("::::::::::::::: total_size: %d\n", total_size);
+  printf("::::::::::::::: var_size: %d\n", var_size);
+  printf("::::::::::::::: out_args_size: %d\n", out_args_size);
+  printf("::::::::::::::: save_reg_size: %d\n", save_reg_size);
+  printf("::::::::::::::: initialized: %d\n", reload_completed);
+  printf("::::::::::::::: save_regs_offset: %d\n", out_args_size + var_size);
+  printf(":::::::::::::::::: %s done\n", __func__);
 }
 
 rtx
@@ -351,13 +464,15 @@ vsdsp_xmem_p (tree decl, tree attributes)
 }
 
 /* Used by constraints.md to distinguish between X, Y and I memory
-   memory addresses.  */
+   memory addresses. To have compatibility with standard C-code
+   the default address space is in X-memory */
 
 bool
 vsdsp_is_xmem_p (rtx o)
 {
   return (MEM_P (o)
-          && MEM_ADDR_SPACE (o) == ADDR_SPACE_XMEM);
+           && (MEM_ADDR_SPACE (o) == ADDR_SPACE_XMEM)
+	       || ADDR_SPACE_GENERIC_P (MEM_ADDR_SPACE (o)));
 }
 
 bool
@@ -614,6 +729,9 @@ doloop_end_output()
 #define TARGET_FUNCTION_ARG_ADVANCE     vsdsp_function_arg_advance
 #undef TARGET_LIBCALL_VALUE
 #define TARGET_LIBCALL_VALUE 		vsdsp_libcall_value
+
+#undef TARGET_COMPUTE_FRAME_LAYOUT
+#define TARGET_COMPUTE_FRAME_LAYOUT vsdsp_compute_frame_layout
 
 #undef  TARGET_ATTRIBUTE_TABLE
 #define TARGET_ATTRIBUTE_TABLE vsdsp_attribute_table
