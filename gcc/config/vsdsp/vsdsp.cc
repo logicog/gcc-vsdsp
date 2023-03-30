@@ -153,7 +153,12 @@ vsdsp_print_operand_address (FILE *file, rtx x)
 	}
       break;
 
+    case POST_INC:
+      fprintf (file, "(%s)+1", reg_names[REGNO (XEXP (x, 0))]);
+      break;
+
     default:
+      printf("Going to default, code is %d, POST_INC would be %d\n", GET_CODE(x), POST_INC);
       output_addr_const (file, x);
       break;
     }

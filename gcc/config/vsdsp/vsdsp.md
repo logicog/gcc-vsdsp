@@ -273,7 +273,7 @@
       {
         return "ldy\t%1, %0 # HI1";
       } else {
-        return "ldx\t%0 # HI1 ????????";
+        return "ldx\t%1, %0 # HI1";
       }
     case 2:
       return "mv %1, %0 # HI2";
@@ -630,7 +630,7 @@
     printf("\n op1 \n");
     print_rtl(stdout, operands[1]);
     printf("\n");
-    if (REGNO (operands[0]) == REG_LR0) {
+    if (REGNO (operands[0]) == REG_LC) {
         emit_insn (gen_dls_insn (operands[0]));
         DONE;
       }
@@ -639,7 +639,7 @@
   })
 
 (define_insn "dls_insn"
-  [(set (reg:HI REG_LR0)
+  [(set (reg:HI REG_LC)
         (unspec:HI [(match_operand:HI 0 "register_operand" "r")] UNSPEC_DLS))]
   ""
   "loop %0")
@@ -647,10 +647,10 @@
 (define_expand "doloop_end"
   [(parallel [(set (pc)
                 (if_then_else
-                  (ne (reg:HI REG_LR0) (const_int 1))
+                  (ne (reg:HI REG_LC) (const_int 1))
                   (label_ref (match_operand 1 "" ""))
                  (pc)))
-              (set (reg:HI REG_LR0) (plus:HI (reg:HI REG_LR0) (const_int -1)))])]
+              (set (reg:HI REG_LC) (plus:HI (reg:HI REG_LC) (const_int -1)))])]
   ""
   {
     printf("insn --------------------------++++++++++++++++++++++ doloop_end EXPANDING\n");
@@ -669,10 +669,10 @@
 (define_insn "*doloop_end_insn"
     [(set (pc)
         (if_then_else
-          (ne (reg:HI REG_LR0) (const_int 1))
+          (ne (reg:HI REG_LC) (const_int 1))
           (label_ref (match_operand 0 "" ""))
           (pc)))
-     (set (reg:HI REG_LR0) (plus:HI (reg:HI REG_LR0) (const_int -1)))]
+     (set (reg:HI REG_LC) (plus:HI (reg:HI REG_LC) (const_int -1)))]
   ""
   {
     printf("insn --------------------------++++++++++++++++++++++ doloop_end OUTPUT\n");
