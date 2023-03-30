@@ -179,7 +179,7 @@ doloop_condition_get (rtx_insn *doloop_pat)
   if (GET_CODE (inc_src) == IF_THEN_ELSE)
     inc_src = XEXP (inc_src, 1);
   if (GET_CODE (inc_src) != PLUS
-      || XEXP (inc_src, 0) != reg
+      || REGNO (XEXP (inc_src, 0)) != REGNO (reg)
       || XEXP (inc_src, 1) != constm1_rtx)
     return 0;
 
@@ -203,13 +203,13 @@ doloop_condition_get (rtx_insn *doloop_pat)
           && XEXP (condition, 1) != const1_rtx))
     return 0;
 
-  if ((XEXP (condition, 0) == reg)
+  if ((REGNO (XEXP (condition, 0)) == REGNO (reg))
       /* For the third case:  */  
       || ((cc_reg != NULL_RTX)
 	  && (XEXP (condition, 0) == cc_reg)
-	  && (reg_orig == reg))
+	  && (REGNO (reg_orig) == REGNO (reg)))
       || (GET_CODE (XEXP (condition, 0)) == PLUS
-	  && XEXP (XEXP (condition, 0), 0) == reg))
+	  && REGNO (XEXP (XEXP (condition, 0), 0)) == REGNO (reg)))
    {
      if (GET_CODE (pattern) != PARALLEL)
      /*  For the second form we expect:
