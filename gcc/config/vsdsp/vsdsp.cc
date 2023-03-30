@@ -58,9 +58,9 @@ vsdsp_regno_reg_class (int r)
    static const enum reg_class reg_class_tab[] =
     {
       /* a0 .. d2 */
-      DATA_REGS, DATA_REGS, DATA_REGS, DATA_REGS,
-      DATA_REGS, DATA_REGS, DATA_REGS, DATA_REGS,
-      DATA_REGS, DATA_REGS, DATA_REGS, DATA_REGS,
+      ALU_REGS, ALU_REGS, EXTENSION_REGS, ALU_REGS,
+      ALU_REGS, EXTENSION_REGS, ALU_REGS, ALU_REGS,
+      EXTENSION_REGS, ALU_REGS, ALU_REGS, EXTENSION_REGS,
       /* i0 .. i7 */
       ADDR_REGS, ADDR_REGS, ADDR_REGS, ADDR_REGS,
       ADDR_REGS, ADDR_REGS, ADDR_REGS, ADDR_REGS,
@@ -68,7 +68,7 @@ vsdsp_regno_reg_class (int r)
       SPECIAL_REGS, SPECIAL_REGS, SPECIAL_REGS, SPECIAL_REGS,
       SPECIAL_REGS, SPECIAL_REGS, SPECIAL_REGS, SPECIAL_REGS,
       /* p0, p1, pc */
-      SPECIAL_REGS, SPECIAL_REGS, SPECIAL_REGS
+      ACC_REGS, ACC_REGS, SPECIAL_REGS
     };
 
   if (r <= 30)
@@ -297,31 +297,16 @@ vsdsp_xmem_p (tree decl, tree attributes)
 static void
 vsdsp_insert_attributes (tree node, tree *attributes)
 {
-  /* Add the section attribute if the variable is in progmem.  */
+  /* TODO: THIS DOEAS NOT WORK!!!! Add the section attribute if the variable is in progmem.  */
 
   if (TREE_CODE (node) == VAR_DECL
       && (TREE_STATIC (node) || DECL_EXTERNAL (node))
       && vsdsp_xmem_p (node, *attributes))
     {
-      addr_space_t as;
       tree node0 = node;
       printf("%s called in, xmem attr found\n", __func__);
 
       return;
-
-      /* For C++, we have to peel arrays in order to get correct
-         determination of readonlyness.  */
-
-      do
-        node0 = TREE_TYPE (node0);
-      while (TREE_CODE (node0) == ARRAY_TYPE);
-
-      if (error_mark_node == node0)
-        return;
-
-      as = TYPE_ADDR_SPACE (TREE_TYPE (node));
-
-      *attributes = tree_cons (get_identifier ("xmem"), NULL, *attributes);
     }
 }
 
@@ -422,6 +407,65 @@ vsdsp_libcall_value (machine_mode mode,
 {
   return gen_rtx_REG (mode, VSDSP_A0);
 }
+
+static unsigned int
+vsdsp_hard_regno_nregs (unsigned int regno, machine_mode mode)
+{
+  int reg_size;
+
+  switch (REGNO_REG_CLASS (regno))
+    {
+    case ALU_REGS:
+      /* Store 32bit integers in 40bit registers a,b,c,d which are a0-a2 */
+      if (mode == SImode)
+	return 2;  // TODO: why does 3 not work, it is correct!
+      reg_size = 16;
+      break;
+    case EXTENSION_REGS:
+      reg_size = 8;
+      break;
+    default:
+      reg_size = 16;
+    }
+  if (regno == VSDSP_MR0 && mode == CCmode)
+    return 1;
+
+  return CEIL (GET_MODE_SIZE (mode), reg_size);
+}
+
+static bool
+vsdsp_hard_regno_mode_ok (unsigned int regno, machine_mode mode)
+{
+  switch (mode)
+    {
+    case SImode:
+      /* store 32bit ints in a, b, c, or d register */
+      if (regno == VSDSP_A0 || regno == VSDSP_B0 
+	  || regno == VSDSP_C0 || regno == VSDSP_D0)
+	return true;
+      if (REGNO_REG_CLASS (regno) == ADDR_REGS)
+	return true;
+      break;
+    case HImode:
+      if (regno != VSDSP_A2 || regno != VSDSP_B2
+	|| regno != VSDSP_C2 || regno != VSDSP_D2)
+	return true;
+      break;
+    case QImode:
+      return true;
+    case SFmode:
+    case DFmode:
+      if (regno == VSDSP_A0 || regno == VSDSP_B0 
+	  || regno == VSDSP_C0 || regno == VSDSP_D0)
+	return true;
+      break;
+    default:
+      return false;
+    }
+    
+    return false;
+}
+
 /* Initialize the GCC target structure.  */
 
 #undef  TARGET_PROMOTE_PROTOTYPES
@@ -449,10 +493,14 @@ vsdsp_libcall_value (machine_mode mode,
 #undef  TARGET_ASM_SELECT_SECTION
 #define TARGET_ASM_SELECT_SECTION vsdsp_asm_select_section
 
-
 #undef  TARGET_ADDR_SPACE_LEGITIMATE_ADDRESS_P
 #define TARGET_ADDR_SPACE_LEGITIMATE_ADDRESS_P vsdsp_addr_space_legitimate_address_p
-  
+
+#undef TARGET_HARD_REGNO_NREGS
+#define TARGET_HARD_REGNO_NREGS vsdsp_hard_regno_nregs
+
+#undef TARGET_HARD_REGNO_MODE_OK
+#define TARGET_HARD_REGNO_MODE_OK vsdsp_hard_regno_mode_ok
 /* The Global `targetm' Variable. */
 
 struct gcc_target targetm = TARGET_INITIALIZER;

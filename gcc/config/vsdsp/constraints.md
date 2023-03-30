@@ -21,5 +21,11 @@
   "Address register.")
 
 (define_register_constraint "d" "DATA_REGS"
-  "Data (ALU) register.")
+  "Data (8/16/40 bit) register.")
+
+(define_register_constraint "b" "ALU_REGS"
+  "Data (16 bit) register.")
+
+(define_register_constraint "e" "EXTENSION_REGS"
+  "Data (8 bit) register.")
 

@@ -92,6 +92,8 @@
 enum reg_class
 {
   NO_REGS,
+  ALU_REGS,
+  EXTENSION_REGS,
   DATA_REGS,
   ADDR_REGS,
   GENERAL_REGS,
@@ -105,11 +107,13 @@ extern enum reg_class vsdsp_regno_reg_class (int r);
 extern rtx vsdsp_function_value (const_tree, const_tree);
 
 #define REG_CLASS_CONTENTS \
-{  { 0x00000000 },  /* Empty */			\
-   { 0x00000fff },  /* DATA_REGS: a0 .. d2 */   \
-   { 0x000ff000 },  /* ADDR_REGS: i0 .. i7 */ 	\
-   { 0x000fffff },  /* GENERAL_REGS */		\
-   { 0x30000000 },  /* p0, p1 */		\
+{  { 0x00000000 },  /* Empty */				\
+   { 0x000006db },  /* ALU_REGS: a0, a1, .. d0, d2 */   \
+   { 0x00000924 },  /* EXTENSION_REGS: a2 .. d2 */   	\
+   { 0x00000fff },  /* DATA_REGS: a0 .. d2 */   	\
+   { 0x000ff000 },  /* ADDR_REGS: i0 .. i7 */ 		\
+   { 0x000fffff },  /* GENERAL_REGS */			\
+   { 0x30000000 },  /* p0, p1 */			\
    { 0x4ff00000 },  /* lr, lr1, mr0, lc, ls, le, ipr0, ipr1, pc */ \
    { 0x7fffffff }   /* All registers */		\
 }
@@ -306,7 +310,7 @@ extern void vsdsp_print_operand_address (FILE *, rtx);
 #define REGNO_REG_CLASS(R) vsdsp_regno_reg_class(R)
 
 /* True for address registers, i0 through i7.  */
-#define ADDRESS_REGNO_P(REGNO)  IN_RANGE (REGNO, 12, 19)
+#define ADDRESS_REGNO_P(REGNO)  (IN_RANGE (REGNO, 12, 19))
 
 /* A C expression which is nonzero if register number NUM is suitable
    for use as a base register in operand addresses.  */
