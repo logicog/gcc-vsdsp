@@ -625,7 +625,7 @@ case $1 in
 				;;
 			vsdsp)
 				basic_machine=vsdsp-unknown
-				basic_os=none
+				basic_os=elf
 				;;
 			vsta)
 				basic_machine=i386-pc

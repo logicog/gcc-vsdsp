@@ -315,7 +315,7 @@ case ${target} in
  | *-*-sysv*				\
  | vax-*-vms*				\
  )
-	echo "*** Configuration ${target} not supported" 1>&2
+	echo "*** Configuration ${target} not Supported" 1>&2
 	exit 1
 	;;
 esac
@@ -566,7 +566,7 @@ sh[123456789lbe]*-*-* | sh-*-*)
 v850*-*-*)
 	cpu_type=v850
 	;;
-vsdsp*)
+vsdsp*-*-*)
 	cpu_type=vsdsp
 	target_has_targetm_common=no
 	;;
@@ -3504,6 +3504,10 @@ visium-*-elf*)
 	tm_file="elfos.h ${tm_file} visium/elf.h newlib-stdint.h"
 	tmake_file="visium/t-visium visium/t-crtstuff"
 	;;
+vsdsp-*-elf*)
+	tm_file="elfos.h ${tm_file} newlib-stdint.h"
+#	tmake_file="visium/t-visium visium/t-crtstuff"
+	;;
 xstormy16-*-elf)
 	# For historical reasons, the target files omit the 'x'.
 	tm_file="elfos.h newlib-stdint.h stormy16/stormy16.h"
@@ -3537,7 +3541,7 @@ m32c-*-elf*)
 	cxx_target_objs="m32c-pragma.o"
  	;;
 *)
-	echo "*** Configuration ${target} not supported" 1>&2
+	echo "*** Configuration ${target} not supporteD" 1>&2
 	exit 1
 	;;
 esac
