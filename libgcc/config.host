@@ -213,6 +213,9 @@ sh[123456789lbe]*-*-*)
 v850*-*-*)
 	cpu_type=v850
 	;;
+vsdsp*-*-*)
+	cpu_type=vsdsp
+	;;
 tic6x-*-*)
 	cpu_type=c6x
 	;;
@@ -1479,6 +1482,10 @@ visium-*-elf*)
         extra_parts="$extra_parts crtbegin.o crtend.o crti.o crtn.o"
         tmake_file="visium/t-visium t-fdpbit"
         ;;
+vsdsp-*-elf*)
+        extra_parts="$extra_parts crti.o crtn.o"
+        tmake_file="vsdsp/t-vsdsp"
+	;;
 xstormy16-*-elf)
 	tmake_file="stormy16/t-stormy16 t-fdpbit"
 	;;
