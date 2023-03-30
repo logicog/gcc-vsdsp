@@ -1229,6 +1229,8 @@ case "${target}" in
   v810-*-*)
     noconfigdirs="$noconfigdirs bfd binutils gas gdb ld opcodes target-libgloss"
     ;;
+  vsdsp-*-*)
+    noconfigdirs="$noconfigdirs"
   vax-*-*)
     noconfigdirs="$noconfigdirs target-newlib target-libgloss"
     ;;
