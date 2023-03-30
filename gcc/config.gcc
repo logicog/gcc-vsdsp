@@ -566,6 +566,10 @@ sh[123456789lbe]*-*-* | sh-*-*)
 v850*-*-*)
 	cpu_type=v850
 	;;
+vsdsp-*-*)
+	cpu_type=vsdsp
+	target_has_targetm_common=no
+	;;
 tic6x-*-*)
 	cpu_type=c6x
 	extra_headers="c6x_intrinsics.h"
