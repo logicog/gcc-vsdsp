@@ -114,9 +114,9 @@ enum reg_class
   EXTENSION_REGS,
   DATA_REGS,
   ADDR_REGS,
-  GENERAL_REGS,
   ACC_REGS,
   SPECIAL_REGS,
+  GENERAL_REGS,
   ALL_REGS,
   LIM_REG_CLASSES
 };
@@ -130,9 +130,9 @@ extern rtx vsdsp_function_value (const_tree, const_tree);
    { 0x00000924 },  /* EXTENSION_REGS: a2 .. d2 */   	\
    { 0x00000fff },  /* DATA_REGS: a0 .. d2 */   	\
    { 0x000ff000 },  /* ADDR_REGS: i0 .. i7 */ 		\
-   { 0x000fffff },  /* GENERAL_REGS */			\
    { 0x30000000 },  /* p0, p1 */			\
-   { 0x4ff00000 },  /* lr, lr1, mr0, lc, ls, le, ipr0, ipr1, pc */ \
+   { 0x0ff00000 },  /* lr, lr1, mr0, lc, ls, le, ipr0, ipr1 */ \
+   { 0x3fffffff },  /* GENERAL_REGS */			\
    { 0x7fffffff }   /* All registers */		\
 }
 
@@ -161,9 +161,9 @@ extern rtx vsdsp_function_value (const_tree, const_tree);
     "NO_REGS", \
     "DATA_REGS", \
     "ADDR_REGS", \
-    "GENERAL_REGS", \
     "ACC_REGS", \
     "SPECIAL_REGS", \
+    "GENERAL_REGS", \
     "ALL_REGS" }
 
 /* Program Counter is register number 30 */
@@ -301,8 +301,7 @@ extern void vsdsp_print_operand_address (FILE *, rtx);
 #define ELIMINABLE_REGS {                                       \
     { ARG_POINTER_REGNUM, STACK_POINTER_REGNUM },               \
     { ARG_POINTER_REGNUM, FRAME_POINTER_REGNUM },               \
-    { FRAME_POINTER_REGNUM, STACK_POINTER_REGNUM },             \
-    { FRAME_POINTER_REGNUM + 1, STACK_POINTER_REGNUM + 1 } }
+    { FRAME_POINTER_REGNUM, STACK_POINTER_REGNUM } }
 
 /* This macro returns the initial difference between the specified pair
    of registers.  */

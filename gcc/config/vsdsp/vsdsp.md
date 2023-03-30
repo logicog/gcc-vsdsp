@@ -25,8 +25,14 @@
    (REG_C1	 7)
    (REG_D1	10)
    (REG_SP      18)
+   (REG_LR0     20)
    (REG_MR0     22)
    ])
+
+(define_c_enum "unspec" [
+ UNSPEC_DLS            ; Used for DLS (Do Loop Start)
+])
+
 
 ;; -------------------------------------------------------------------------
 ;; Move instructions
@@ -264,7 +270,7 @@
       {
         return "ldy\t%1, %0 # HI1";
       } else {
-        return "ldx\t%1, %0 # HI1";
+        return "ldx\t%0 # HI1 ????????";
       }
     case 2:
       return "mv %1, %0 # HI2";
@@ -336,9 +342,9 @@
     return "mulss %0, %1";
   })
 
-; Arithmetic shift
+; Arithmetic shifts left/right
 ; VSDSP only support arithmetic right shift by one bit
-; -> convert asr #n to asl #-n for n > 1
+; -> convert asr #n to ashl #-n for n > 1
 
 (define_insn_and_split "ashrhi3"
   [(set (match_operand:HI 0 "register_operand"                "=b")
@@ -377,6 +383,17 @@
     return "ashl %1, %0, %2";
   })
 
+; TODO: Is this necessry? Compiler seems anyway to produce add r, r, r
+(define_peephole2
+  [(set (match_operand:HI 2 "nonimmediate_operand" "") (const_int 1))
+   (parallel [  (set (match_operand:HI 0 "register_operand" "")
+                     (ashift:HI (match_operand:HI 1 "register_operand" "") (match_dup 2)))
+		(clobber (reg:CC REG_MR0))])]
+  ""
+  [(set (match_dup 0)
+	(ashift:HI (match_dup 1) (const_int 1)))]
+)
+
 (define_insn "*ashrhi3i1"
   [(set (match_operand:HI 0 "register_operand" "=b")
 	(ashiftrt:HI 
@@ -385,6 +402,17 @@
   ""
   {
     return "asr %1, %0";
+  })
+
+; TODO: Is this necessry? Compiler seems anyway to produce add r, r, r
+(define_insn "*ashlhi3i1"
+  [(set (match_operand:HI 0 "register_operand" "=b")
+	(ashift:HI 
+	   (match_operand:HI 1 "register_operand" "b")
+	   (match_operand:HI 2 "immediate_operand" "I")))]
+  ""
+  {
+    return "lsl %1, %0";
   })
 
 (define_insn "neghi2"
@@ -410,7 +438,7 @@
   [(set (pc)
 	(label_ref (match_operand 0 "" "")))]
   ""
-  "jmp %l0%#")
+  "jmp %l0")
   
 
 (define_expand "call"
@@ -459,6 +487,16 @@
   ""
   "call\\t%1"
   )
+
+; TODO: Needed for -O3, but is this not just a define_expand ?
+(define_insn "sibcall_value"
+  [(set (match_operand 0 "" "")
+	(call (match_operand:HI 1 "memory_operand" "")
+	      (match_operand:HI 2 "general_operand" "")))]
+  ""
+{
+  return "CALL %0 %1 %2";
+})
 
 ;; -------------------------------------------------------------------------
 ;; Branch instructions
@@ -578,41 +616,64 @@
 ;; Looping
 ;; -------------------------------------------------------------------------
 
-(define_expand "doloop_end"
-  [(parallel [(set (pc)
-                   (if_then_else
-                    (ne (match_operand:HI 0 "nonimmediate_operand" "+r,!m")
-                        (const_int 1))
-                    (label_ref (match_operand 1 "" ""))
-                    (pc)))
-              (set (match_dup 0)
-                   (plus:HI (match_dup 0)
-                         (const_int -1)))])]
-  ""
-{
-    printf("expand --------------------------++++++++++++++++++++++ doloop_end\n");
-    if (GET_MODE (operands[0]) != HImode)
-      FAIL;
-})
-
-(define_insn "doloop_end_insn"
-  [(set (pc)
-        (if_then_else
-         (ne (match_operand:HI 0 "nonimmediate_operand" "+r,!m")
-             (const_int 1))
-         (label_ref (match_operand 1 "" ""))
-         (pc)))
-   (set (match_dup 0)
-        (plus:HI (match_dup 0)
-              (const_int -1)))]
+(define_expand "doloop_begin"
+  [(match_operand 0 "" "")
+   (match_operand 1 "" "")]
   ""
   {
-    printf("insn --------------------------++++++++++++++++++++++ doloop_end\n");
-    if (which_alternative == 0)
-      return "sob %0,%l1";
-    /* emulate sob */
-    output_asm_insn ("dec %0", operands);
-    return "bne %l1";
+    printf("-------- doloop_begin\n");
+    printf("op0 \n");
+    print_rtl(stdout, operands[0]);
+    printf("\n op1 \n");
+    print_rtl(stdout, operands[1]);
+    printf("\n");
+    if (REGNO (operands[0]) == REG_LR0) {
+        emit_insn (gen_dls_insn (operands[0]));
+        DONE;
+      }
+    else
+      FAIL;
+  })
+
+(define_insn "dls_insn"
+  [(set (reg:HI REG_LR0)
+        (unspec:HI [(match_operand:HI 0 "register_operand" "r")] UNSPEC_DLS))]
+  ""
+  "loop %0")
+
+(define_expand "doloop_end"
+  [(parallel [(set (pc)
+                (if_then_else
+                  (ne (reg:HI REG_LR0) (const_int 1))
+                  (label_ref (match_operand 1 "" ""))
+                 (pc)))
+              (set (reg:HI REG_LR0) (plus:HI (reg:HI REG_LR0) (const_int -1)))])]
+  ""
+  {
+    printf("insn --------------------------++++++++++++++++++++++ doloop_end EXPANDING\n");
+    if (optimize > 0)
+      {
+	printf("insn --------------------------++++++++++++++++++++++ doloop_end 1\n");
+	if (GET_MODE (operands[0]) != HImode)
+           FAIL;
+	printf("insn --------------------------++++++++++++++++++++++ doloop_end 2\n");
+      }
+    else
+      FAIL;
+ })
+
+
+(define_insn "*doloop_end_insn"
+    [(set (pc)
+        (if_then_else
+          (ne (reg:HI REG_LR0) (const_int 1))
+          (label_ref (match_operand 0 "" ""))
+          (pc)))
+     (set (reg:HI REG_LR0) (plus:HI (reg:HI REG_LR0) (const_int -1)))]
+  ""
+  {
+    printf("insn --------------------------++++++++++++++++++++++ doloop_end OUTPUT\n");
+    return "nop # Loop end";
   })
 
 ;; -------------------------------------------------------------------------

@@ -482,6 +482,15 @@ vsdsp_hard_regno_mode_ok (unsigned int regno, machine_mode mode)
     return false;
 }
 
+/* VSDSP implementation of TARGET_CAN_USE_DOLOOP_P  */
+
+bool
+vsdsp_can_use_doloop_p (const widest_int &, const widest_int &,
+                        unsigned int loop_depth, bool entered_at_top)
+{
+  return loop_depth == 1 && entered_at_top;
+}
+
 /* Initialize the GCC target structure.  */
 
 #undef  TARGET_PROMOTE_PROTOTYPES
@@ -517,6 +526,12 @@ vsdsp_hard_regno_mode_ok (unsigned int regno, machine_mode mode)
 
 #undef TARGET_HARD_REGNO_MODE_OK
 #define TARGET_HARD_REGNO_MODE_OK vsdsp_hard_regno_mode_ok
+
+#undef TARGET_CAN_USE_DOLOOP_P
+#define TARGET_CAN_USE_DOLOOP_P vsdsp_can_use_doloop_p
+
+// TODO: set TARGET_INVALID_WITHIN_DOLOOP
+
 /* The Global `targetm' Variable. */
 
 struct gcc_target targetm = TARGET_INITIALIZER;
